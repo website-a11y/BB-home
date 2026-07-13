@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Instant Inspection Pricing</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#050A30;
+    --navy-2:#0D1547;
+    --paper:#F5F6F8;
+    --ink:#050A30;
+    --gold:#CF2E2E;
+    --gold-2:#E1605C;
+    --line: rgba(115,116,118,0.28);
+    --green:#5BB95C;
+    --green-2:#4CA84D;
+    --red:#CF2E2E;
+    --radius: 3px;
+    --display: 'Montserrat', 'Arial', sans-serif;
+    --body: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: 'Open Sans', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:transparent;font-family:var(--body);color:var(--ink);}
+  a{color:inherit;}
+
+  /* ---- Launcher ---- */
+  .launcher-wrap{
+    display:flex; align-items:center; justify-content:center;
+    padding:56px 20px; background:
+      linear-gradient(var(--paper),var(--paper)) padding-box,
+      repeating-linear-gradient(0deg, transparent 0 39px, rgba(5,10,48,0.05) 39px 40px),
+      repeating-linear-gradient(90deg, transparent 0 39px, rgba(5,10,48,0.05) 39px 40px);
+  }
+  .launcher-card{
+    max-width:420px; width:100%; background:var(--navy); color:#fff; border-radius:6px;
+    padding:34px 32px; position:relative; overflow:hidden;
+    box-shadow: 0 20px 50px rgba(5,10,48,0.35);
+  }
+  .launcher-card::before{
+    content:"EST. INSPECTION QUOTE"; position:absolute; top:14px; right:-38px;
+    background:var(--gold); color:#fff; font:700 10px/1 var(--mono);
+    letter-spacing:.14em; padding:5px 44px; transform:rotate(35deg);
+  }
+  .stamp{
+    display:inline-flex; align-items:center; gap:8px; font:700 11px/1 var(--mono);
+    letter-spacing:.14em; color:var(--gold-2); border:1px solid rgba(207,46,46,0.4);
+    padding:6px 10px; border-radius:99px; margin-bottom:18px;
+  }
+  .stamp .dot{width:6px;height:6px;border-radius:50%;background:var(--gold-2);}
+  .launcher-card h1{
+    font-family:var(--display); font-weight:800; font-size:28px; line-height:1.2; margin:0 0 16px; text-transform:uppercase; letter-spacing:.01em;
+  }
+  .launcher-list{list-style:none; margin:0 0 26px; padding:0; display:grid; gap:10px;}
+  .launcher-list li{display:flex; gap:10px; align-items:flex-start; font-size:14.5px; color:rgba(255,255,255,0.88); line-height:1.4;}
+  .launcher-list .tick{color:var(--gold-2); font-family:var(--mono); font-weight:700; flex:0 0 auto;}
+  .step-list{list-style:none; margin:0 0 26px; padding:0; display:grid; gap:10px;}
+  .step-list li{display:flex; gap:10px; align-items:flex-start; font-size:14.5px; color:var(--ink); line-height:1.4;}
+  .step-list .tick{color:var(--gold); font-family:var(--mono); font-weight:700; flex:0 0 auto;}
+  .btn{
+    font-family:var(--display); font-weight:700; font-size:14px; border:none; cursor:pointer;
+    border-radius:var(--radius); padding:15px 20px; transition:transform .12s ease, box-shadow .12s ease, background .15s ease;
+    text-transform:uppercase; letter-spacing:.05em;
+  }
+  .btn:active{transform:scale(0.98);}
+  .btn-primary{background:var(--green); color:#fff; width:100%;}
+  .btn-primary:hover{background:var(--green-2);}
+  .btn-ghost{background:var(--navy); color:#fff; border:1px solid var(--navy);}
+  .btn-ghost:hover{background:var(--navy-2);}
+  .btn-outline-inv{background:transparent; color:#fff; border:1px solid rgba(255,255,255,0.35);}
+  .admin-link{
+    display:block; text-align:center; margin-top:14px; font-size:12px; color:rgba(5,10,48,0.45);
+    text-decoration:underline; cursor:pointer; background:none; border:none; font-family:var(--body);
+  }
+
+  /* ---- Modal ---- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(5,10,48,0.55); backdrop-filter:blur(2px);
+    display:none; align-items:center; justify-content:center; z-index:1000; padding:16px;
+  }
+  .overlay.open{display:flex;}
+  .modal{
+    background:var(--paper); width:100%; max-width:820px; max-height:92vh; overflow-y:auto;
+    border-radius:6px; position:relative; box-shadow:0 30px 80px rgba(0,0,0,0.4);
+  }
+  .modal-head{
+    display:flex; align-items:center; justify-content:space-between; padding:20px 32px;
+    border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--paper); z-index:2;
+  }
+  .modal-head .brand{font-family:var(--display); font-weight:700; font-size:12px; letter-spacing:.1em; color:var(--navy); text-transform:uppercase;}
+  .close-x{background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink);line-height:1;padding:4px 8px;}
+  .progress{height:3px; background:var(--line); position:relative;}
+  .progress-bar{height:100%; background:var(--gold); transition:width .3s ease;}
+  .modal-body{padding:32px 32px 34px;}
+  .step-eyebrow{font:700 11px/1 var(--display); letter-spacing:.14em; color:var(--gold); text-transform:uppercase; margin:0 0 8px;}
+  .step-title{font-family:var(--display); font-size:26px; font-weight:800; margin:0 0 6px; color:var(--gold); text-transform:uppercase; letter-spacing:.01em;}
+  .step-sub{font-size:14.5px; color:rgba(5,10,48,0.62); margin:0 0 22px;}
+
+  .card-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:12px;}
+  .opt-card{
+    border:1.5px solid var(--line); border-radius:var(--radius); padding:16px 14px; cursor:pointer;
+    background:#fff; transition:border-color .15s, background .15s; text-align:left;
+  }
+  .opt-card:hover{border-color:var(--gold);}
+  .opt-card.selected{border-color:var(--gold); background:var(--gold); color:#fff;}
+  .opt-card .name{font-weight:700; font-size:14.5px; font-family:var(--display); text-transform:uppercase; letter-spacing:.02em;}
+  .opt-card .sub{font-size:12px; color:rgba(5,10,48,0.5); margin-top:2px;}
+  .opt-card.selected .sub{color:rgba(255,255,255,0.6);}
+
+  .inspector-panel{margin-top:22px; padding-top:20px; border-top:1px solid var(--line);}
+  .inspector-panel .heading{font:700 11px/1 var(--display); letter-spacing:.12em; color:var(--gold); text-transform:uppercase; margin-bottom:12px;}
+  .inspector-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:12px;}
+  .inspector-card{
+    display:flex; gap:12px; align-items:center; border:1.5px solid var(--line); border-radius:var(--radius);
+    padding:12px 14px; background:#fff; cursor:pointer; text-align:left; width:100%; transition:border-color .15s, background .15s;
+  }
+  .inspector-card:hover{border-color:var(--gold);}
+  .inspector-card.selected{border-color:var(--gold); background:var(--gold);}
+  .inspector-avatar{
+    width:42px; height:42px; border-radius:50%; background:var(--navy); color:var(--gold-2);
+    display:flex; align-items:center; justify-content:center; font-family:var(--display); font-weight:700; font-size:14px; flex:0 0 auto;
+  }
+  .inspector-card.selected .inspector-avatar{background:#fff; color:var(--gold);}
+  .inspector-name{font-weight:700; font-size:13.5px; color:var(--ink);}
+  .inspector-card.selected .inspector-name{color:#fff;}
+  .inspector-title{font-size:11.5px; color:rgba(5,10,48,0.55);}
+  .inspector-card.selected .inspector-title{color:rgba(255,255,255,0.65);}
+  .inspector-check{margin-left:auto; font-weight:700; color:#fff; display:none; flex:0 0 auto;}
+  .inspector-card.selected .inspector-check{display:block;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12.5px; font-weight:600; margin-bottom:5px; color:rgba(5,10,48,0.7);}
+  .field input, .field select{
+    width:100%; padding:11px 12px; border:1.5px solid var(--line); border-radius:4px;
+    font-size:14.5px; font-family:var(--body); background:#fff; color:var(--ink);
+  }
+  .field input:focus, .field select:focus{outline:none; border-color:var(--gold);}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+
+  .sqft-readout{
+    font-family:var(--mono); font-size:38px; font-weight:700; color:var(--navy);
+    display:flex; align-items:baseline; gap:6px; margin:6px 0 4px;
+  }
+  .sqft-readout span{font-size:14px; font-weight:600; color:rgba(5,10,48,0.45);}
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:4px; border-radius:2px; background:var(--line); margin:14px 0 6px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--gold);
+    border:3px solid var(--navy); cursor:pointer; margin-top:-8px;
+  }
+  .range-marks{display:flex; justify-content:space-between; font:11px var(--mono); color:rgba(5,10,48,0.4);}
+
+  .price-panel{
+    background:var(--gold); color:#fff; border-radius:var(--radius); padding:18px 20px; margin-top:18px;
+  }
+  .price-panel .label{font:700 11px/1 var(--display); letter-spacing:.12em; color:rgba(255,255,255,0.85); text-transform:uppercase;}
+  .price-panel .amount{font-family:var(--display); font-size:32px; font-weight:800; margin-top:4px;}
+
+  .addon-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .addon-row{
+    display:flex; align-items:center; justify-content:space-between; padding:13px 14px;
+    border:1.5px solid var(--line); border-radius:var(--radius); background:#fff; cursor:pointer;
+  }
+  .addon-row.checked{border-color:var(--gold);}
+  .addon-left{display:flex; align-items:center; gap:12px;}
+  .chk{width:19px; height:19px; border:2px solid var(--line); border-radius:4px; display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
+  .addon-row.checked .chk{background:var(--gold); border-color:var(--gold); color:#fff; font-weight:700; font-size:12px;}
+  .addon-name{font-weight:600; font-size:14.5px;}
+  .addon-price{font-family:var(--mono); font-weight:700; font-size:14px; color:rgba(5,10,48,0.6);}
+
+  .receipt{border-top:2px dashed var(--line); margin-top:18px; padding-top:14px; font-family:var(--mono); font-size:13.5px;}
+  .receipt-row{display:flex; justify-content:space-between; padding:4px 0; color:rgba(5,10,48,0.7);}
+  .receipt-total{display:flex; justify-content:space-between; padding-top:10px; margin-top:6px; border-top:1px solid var(--line); font-weight:700; font-size:16px; color:var(--ink);}
+
+  .nav-row{display:flex; gap:10px; margin-top:24px;}
+  .nav-row .btn-ghost{flex:0 0 auto;}
+  .nav-row .btn-primary{flex:1;}
+
+  .summary-hero{text-align:center; padding:8px 0 20px;}
+  .summary-hero .amt{font-family:var(--display); font-size:48px; font-weight:800; color:var(--gold);}
+  .summary-hero .tag{font:700 12px/1 var(--display); letter-spacing:.12em; color:rgba(5,10,48,0.5); text-transform:uppercase; margin-bottom:6px;}
+  .summary-chips{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
+  .chip{border:1px solid var(--line); border-radius:99px; padding:6px 12px; font-size:12.5px; font-family:var(--body); font-weight:600;}
+
+  .error-text{color:var(--red); font-size:12px; margin-top:4px; display:none;}
+  .badge-custom{background:var(--red); color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-family:var(--mono);}
+
+  /* ---- Admin ---- */
+  .admin-wrap{max-width:1080px; margin:0 auto; padding:30px 22px 80px; display:none;}
+  .admin-wrap.open{display:block;}
+  .admin-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; flex-wrap:wrap; gap:12px;}
+  .admin-head h2{font-family:var(--display); font-size:24px; font-weight:800; margin:0; color:var(--navy); text-transform:uppercase;}
+  .tabs{display:flex; gap:6px; margin-bottom:22px; flex-wrap:wrap;}
+  .tab-btn{
+    padding:9px 16px; border-radius:var(--radius); border:1px solid var(--line); background:#fff;
+    font-size:13px; font-weight:700; cursor:pointer; font-family:var(--display); color:var(--ink); text-transform:uppercase; letter-spacing:.03em;
+  }
+  .tab-btn.active{background:var(--navy); color:#fff; border-color:var(--navy);}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .admin-card{background:#fff; border:1px solid var(--line); border-radius:6px; padding:20px; margin-bottom:16px;}
+  .admin-card h3{margin:0 0 4px; font-size:16px;}
+  .admin-card .hint{font-size:12.5px; color:rgba(5,10,48,0.5); margin:0 0 14px;}
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th{text-align:left; padding:8px 10px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:rgba(5,10,48,0.5); border-bottom:1px solid var(--line);}
+  td{padding:8px 10px; border-bottom:1px solid var(--line);}
+  td input, td select{width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:3px; font-size:13px; font-family:var(--mono);}
+  .loc-pills{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+  .loc-pill{padding:7px 14px; border-radius:99px; border:1px solid var(--line); cursor:pointer; font-size:13px; font-weight:600; background:#fff;}
+  .loc-pill.active{background:var(--gold); border-color:var(--gold); color:#fff;}
+  .loc-pill.disabled-loc{opacity:.45; text-decoration:line-through;}
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line);}
+  .switch{position:relative; width:40px; height:22px;}
+  .switch input{opacity:0; width:0; height:0;}
+  .slider-el{position:absolute; inset:0; background:var(--line); border-radius:99px; cursor:pointer; transition:.15s;}
+  .slider-el::before{content:""; position:absolute; width:16px; height:16px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.15s;}
+  .switch input:checked + .slider-el{background:var(--green);}
+  .switch input:checked + .slider-el::before{transform:translateX(18px);}
+  .save-note{font-size:12px; color:var(--green); font-family:var(--mono); opacity:0; transition:opacity .3s;}
+  .save-note.show{opacity:1;}
+  .toolbar{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
+  .small-btn{padding:8px 14px; font-size:13px; border-radius:4px;}
+  .empty-state{text-align:center; padding:40px 20px; color:rgba(5,10,48,0.45); font-size:14px;}
+  .loading{text-align:center; padding:20px; font-family:var(--mono); font-size:13px; color:rgba(5,10,48,0.5);}
+  .admin-login{max-width:360px; margin:80px auto; text-align:center;}
+  .admin-login h2{font-family:var(--display); margin-bottom:16px;}
+  @media (max-width:520px){
+    .card-grid{grid-template-columns:1fr;}
+    .row2{grid-template-columns:1fr;}
+    .addon-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== LAUNCHER (embed this button on your site) ===== -->
+<div class="launcher-wrap">
+  <div class="launcher-card">
+    <div class="stamp"><span class="dot"></span>60-SECOND QUOTE</div>
+    <h1>Don't Pay More Than You Need To!</h1>
+    <ul class="launcher-list">
+      <li><span class="tick">✓</span> Instant inspection pricing</li>
+      <li><span class="tick">✓</span> No hidden fees</li>
+      <li><span class="tick">✓</span> Takes less than 60 seconds</li>
+      <li><span class="tick">✓</span> Get your quote before scheduling</li>
+    </ul>
+    <button class="btn btn-primary" onclick="openModal()">Get My Price</button>
+  </div>
+</div>
+<button class="admin-link" onclick="toggleAdmin(true)">Owner / Admin Dashboard</button>
+
+<!-- ===== POPUP WIZARD ===== -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="brand">Inspection Price Estimator</span>
+      <button class="close-x" onclick="closeModal()">✕</button>
+    </div>
+    <div class="progress"><div class="progress-bar" id="progressBar" style="width:14%"></div></div>
+    <div class="modal-body" id="modalBody"><!-- injected per step --></div>
+  </div>
+</div>
+
+<!-- ===== ADMIN DASHBOARD ===== -->
+<div class="admin-wrap" id="adminWrap">
+  <div class="admin-login" id="adminLogin">
+    <h2>Admin Login</h2>
+    <div class="field"><label>Password</label><input type="password" id="adminPass" placeholder="Default: admin123"></div>
+    <button class="btn btn-primary" onclick="checkAdminLogin()">Enter Dashboard</button>
+    <button class="admin-link" onclick="toggleAdmin(false)">← Back to site</button>
+  </div>
+
+  <div id="adminMain" style="display:none;">
+    <div class="admin-head">
+      <h2>Pricing & Leads Dashboard</h2>
+      <button class="btn btn-ghost small-btn" onclick="toggleAdmin(false)">← Back to site</button>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="pricing" onclick="showTab('pricing')">Square-Foot Pricing</button>
+      <button class="tab-btn" data-tab="addons" onclick="showTab('addons')">Add-on Services</button>
+      <button class="tab-btn" data-tab="inspectors" onclick="showTab('inspectors')">Inspectors</button>
+      <button class="tab-btn" data-tab="leads" onclick="showTab('leads')">Leads</button>
+      <button class="tab-btn" data-tab="settings" onclick="showTab('settings')">Settings</button>
+    </div>
+
+    <!-- PRICING -->
+    <div class="panel active" id="panel-pricing">
+      <div class="admin-card">
+        <h3>Service Areas</h3>
+        <p class="hint">Click a location to edit its square-footage pricing table. Toggle to enable/disable on the public form.</p>
+        <div class="loc-pills" id="locPills"></div>
+        <table id="pricingTable"><thead><tr><th>Square Feet</th><th>Price ($)</th><th></th></tr></thead><tbody></tbody></table>
+        <div class="toolbar"><button class="btn btn-ghost small-btn" onclick="addPriceRow()">+ Add Range</button></div>
+        <span class="save-note" id="saveNotePricing">Saved ✓</span>
+      </div>
+    </div>
+
+    <!-- ADDONS -->
+    <div class="panel" id="panel-addons">
+      <div class="admin-card">
+        <h3>Optional Add-on Services</h3>
+        <p class="hint">Prices apply across all locations. Disable a service to hide it from the public form.</p>
+        <table id="addonsTable"><thead><tr><th>Service</th><th>Price ($)</th><th>Enabled</th><th></th></tr></thead><tbody></tbody></table>
+        <div class="toolbar"><button class="btn btn-ghost small-btn" onclick="addAddonRow()">+ Add Service</button></div>
+        <span class="save-note" id="saveNoteAddons">Saved ✓</span>
+      </div>
+    </div>
+
+    <!-- INSPECTORS -->
+    <div class="panel" id="panel-inspectors">
+      <div class="admin-card">
+        <h3>Available Inspectors by Area</h3>
+        <p class="hint">Shown to customers on the popup right after they pick a service area. Click an area to edit its roster.</p>
+        <div class="loc-pills" id="inspectorLocPills"></div>
+        <table id="inspectorsTable"><thead><tr><th>Name</th><th>Title / Credential</th><th></th></tr></thead><tbody></tbody></table>
+        <div class="toolbar"><button class="btn btn-ghost small-btn" onclick="addInspectorRow()">+ Add Inspector</button></div>
+        <span class="save-note" id="saveNoteInspectors">Saved ✓</span>
+      </div>
+    </div>
+
+    <!-- LEADS -->
+    <div class="panel" id="panel-leads">
+      <div class="admin-card">
+        <h3>Captured Leads</h3>
+        <p class="hint">Every submitted quote request is stored here before the customer reaches the scheduler.</p>
+        <div class="toolbar">
+          <button class="btn btn-ghost small-btn" onclick="exportLeadsCSV()">Export CSV</button>
+          <button class="btn btn-ghost small-btn" onclick="exportLeadsExcel()">Export Excel</button>
+          <button class="btn btn-ghost small-btn" onclick="loadLeads()">↻ Refresh</button>
+        </div>
+        <div id="leadsTableWrap"><div class="loading">Loading leads…</div></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="panel" id="panel-settings">
+      <div class="admin-card">
+        <h3>General Settings</h3>
+        <div class="row2">
+          <div class="field"><label>Tax Rate (%)</label><input type="number" id="setTax" step="0.01" min="0"></div>
+          <div class="field"><label>Promotional Discount (%)</label><input type="number" id="setDiscount" step="0.01" min="0"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Coupon Code</label><input type="text" id="setCoupon" placeholder="e.g. SAVE10"></div>
+          <div class="field"><label>Coupon Discount (%)</label><input type="number" id="setCouponPct" step="0.01" min="0"></div>
+        </div>
+        <div class="field"><label>Thank-You Message</label><input type="text" id="setThankYou"></div>
+        <div class="field"><label>Notification Email</label><input type="email" id="setNotifyEmail" placeholder="office@yourcompany.com"></div>
+        <button class="btn btn-primary" style="width:auto;" onclick="saveSettings()">Save Settings</button>
+        <span class="save-note" id="saveNoteSettings">Saved ✓</span>
+      </div>
+      <div class="admin-card">
+        <h3>Scheduler Integration (ISN / Spectora)</h3>
+        <p class="hint">The public form opens this URL after a lead is captured, appending the customer's details as query parameters so they don't have to re-type them. Adjust the parameter names below to exactly match your scheduler's prefill fields — Claude could not read them directly because your live scheduler page renders its form with JavaScript after the page loads, so the field names weren't present in the fetched HTML. Ask your ISN/Spectora rep for the official prefill parameter names and drop them in here.</p>
+        <div class="field"><label>Scheduler Base URL</label><input type="text" id="setSchedulerUrl"></div>
+        <div class="row2">
+          <div class="field"><label>Param: First Name</label><input type="text" id="pmFirst"></div>
+          <div class="field"><label>Param: Last Name</label><input type="text" id="pmLast"></div>
+          <div class="field"><label>Param: Email</label><input type="text" id="pmEmail"></div>
+          <div class="field"><label>Param: Phone</label><input type="text" id="pmPhone"></div>
+          <div class="field"><label>Param: Address</label><input type="text" id="pmAddress"></div>
+          <div class="field"><label>Param: City</label><input type="text" id="pmCity"></div>
+          <div class="field"><label>Param: ZIP</label><input type="text" id="pmZip"></div>
+          <div class="field"><label>Param: Property Type</label><input type="text" id="pmPtype"></div>
+          <div class="field"><label>Param: Square Footage</label><input type="text" id="pmSqft"></div>
+          <div class="field"><label>Param: Services</label><input type="text" id="pmServices"></div>
+          <div class="field"><label>Param: Price</label><input type="text" id="pmPrice"></div>
+          <div class="field"><label>Param: Region</label><input type="text" id="pmRegion"></div>
+          <div class="field"><label>Param: Inspector</label><input type="text" id="pmInspector"></div>
+        </div>
+        <button class="btn btn-primary" style="width:auto;" onclick="saveSettings()">Save Mapping</button>
+        <span class="save-note" id="saveNoteMap">Saved ✓</span>
+      </div>
+      <div class="admin-card">
+        <h3>Company Phone (Call Now button)</h3>
+        <div class="field"><label>Phone Number</label><input type="text" id="setPhone" placeholder="866-484-8318"></div>
+        <button class="btn btn-primary" style="width:auto;" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================= DATA LAYER ============================= */
+const DEFAULT_CONFIG = {
+  locations: ["Austin","Dallas","Houston","San Antonio"],
+  enabledLocations: {Austin:true, Dallas:true, Houston:true, "San Antonio":true},
+  pricingByLocation: {}, // filled below
+  addons: [
+    {id:"termite", name:"Termite Inspection", price:75, enabled:true},
+    {id:"pool", name:"Pool Inspection", price:95, enabled:true},
+    {id:"sewer", name:"Sewer Scope", price:110, enabled:true},
+    {id:"mold", name:"Mold Inspection", price:150, enabled:true},
+    {id:"radon", name:"Radon Testing", price:125, enabled:true}
+  ],
+  inspectorsByLocation: {
+    Austin: [{name:"Chance Phillips", title:"Certified Master Inspector"}, {name:"Vivek Shedge", title:"Certified Inspector"}],
+    Dallas: [{name:"Adam Jones", title:"Certified Inspector"}, {name:"Thomas Holthe", title:"Certified Inspector"}],
+    Houston: [{name:"Nicholas Wingo", title:"Certified Inspector"}, {name:"Chase Ray", title:"Certified Inspector"}],
+    "San Antonio": [{name:"Jason Box", title:"Certified Inspector"}]
+  },
+  settings:{
+    taxRate:0, discount:0, couponCode:"", couponPct:0,
+    thankYouMessage:"Thanks! Your inspector will confirm your appointment shortly.",
+    notifyEmail:"", phone:"866-484-8318",
+    schedulerUrl:"https://app.spectora.com/home-inspectors/element-inspection-03e987444d/schedule",
+    paramMap:{first:"first_name",last:"last_name",email:"email",phone:"phone",address:"address",
+      city:"city",zip:"zip",ptype:"property_type",sqft:"square_footage",services:"services",price:"est_price",region:"region",inspector:"inspector_name"}
+  }
+};
+const DEFAULT_TIERS = [
+  {min:0,max:1000,price:325},{min:1001,max:1500,price:350},{min:1501,max:2000,price:375},
+  {min:2001,max:2500,price:425},{min:2501,max:3000,price:475},{min:3001,max:3500,price:525},
+  {min:3501,max:4000,price:575},{min:4001,max:4500,price:625},{min:4501,max:5000,price:675},
+  {min:5001,max:999999,price:null} // null price = "Custom"
+];
+DEFAULT_CONFIG.locations.forEach(l=>{ DEFAULT_CONFIG.pricingByLocation[l] = JSON.parse(JSON.stringify(DEFAULT_TIERS)); });
+
+let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+
+async function loadConfig(){
+  try{
+    const res = await window.storage.get('config', true);
+    if(res && res.value){
+      const loaded = JSON.parse(res.value);
+      config = Object.assign({}, DEFAULT_CONFIG, loaded);
+      config.settings = Object.assign({}, DEFAULT_CONFIG.settings, loaded.settings||{});
+      config.settings.paramMap = Object.assign({}, DEFAULT_CONFIG.settings.paramMap, (loaded.settings&&loaded.settings.paramMap)||{});
+    }
+  }catch(e){ /* no config saved yet — use defaults */ }
+}
+async function saveConfig(){
+  try{ await window.storage.set('config', JSON.stringify(config), true); }
+  catch(e){ console.error('Save failed', e); }
+}
+
+/* ============================= WIZARD STATE ============================= */
+let step = 1;
+const totalSteps = 5;
+let state = { location:null, inspector:null, propertyType:null, sqft:1500, addons:[], lead:{} };
+
+function openModal(){
+  document.getElementById('overlay').classList.add('open');
+  step = 1; state = { location:null, inspector:null, propertyType:null, sqft:1500, addons:[], lead:{} };
+  render();
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+
+function findTier(location, sqft){
+  const tiers = (config.pricingByLocation[location]||DEFAULT_TIERS);
+  return tiers.find(t => sqft>=t.min && sqft<=t.max) || tiers[tiers.length-1];
+}
+function calcAddonsTotal(){
+  return state.addons.reduce((sum,id)=>{
+    const a = config.addons.find(x=>x.id===id);
+    return sum + (a? a.price : 0);
+  },0);
+}
+function calcTotals(){
+  const tier = findTier(state.location, state.sqft);
+  const base = tier ? tier.price : null;
+  const addonsTotal = calcAddonsTotal();
+  let subtotal = (base===null? null : base+addonsTotal);
+  let discountAmt = 0, tax = 0, total = subtotal;
+  if(subtotal!==null){
+    const s = config.settings;
+    if(s.discount) discountAmt += subtotal*(s.discount/100);
+    if(state.couponApplied && s.couponPct) discountAmt += subtotal*(s.couponPct/100);
+    const afterDiscount = subtotal - discountAmt;
+    tax = s.taxRate? afterDiscount*(s.taxRate/100) : 0;
+    total = afterDiscount + tax;
+  }
+  return {base, addonsTotal, subtotal, discountAmt, tax, total};
+}
+function money(n){ return n===null||n===undefined? "Custom" : "$"+Math.round(n).toLocaleString(); }
+
+/* ============================= RENDER STEPS ============================= */
+function render(){
+  document.getElementById('progressBar').style.width = ((step/totalSteps)*100)+"%";
+  const body = document.getElementById('modalBody');
+  if(step===1) body.innerHTML = stepLocation();
+  else if(step===2) body.innerHTML = stepProperty();
+  else if(step===3) body.innerHTML = stepLeadForm();
+  else if(step===4) body.innerHTML = stepSummary();
+  else if(step===5) body.innerHTML = stepThankYou();
+  attachRangeListener();
+}
+
+function stepLocation(){
+  const cards = config.locations.filter(l=>config.enabledLocations[l]!==false).map(l=>`
+    <button class="opt-card ${state.location===l?'selected':''}" onclick="selectLocation('${l}')">
+      <div class="name">${l}</div><div class="sub">Service area</div>
+    </button>`).join('');
+  const inspectors = state.location ? (config.inspectorsByLocation[state.location]||[]) : [];
+  const inspectorBlock = state.location ? `
+    <div class="inspector-panel">
+      <div class="heading">Choose Your Inspector in ${state.location}</div>
+      ${inspectors.length? `<div class="inspector-grid">
+        ${inspectors.map(i=>`
+        <button class="inspector-card ${state.inspector===i.name?'selected':''}" onclick="selectInspector('${i.name.replace(/'/g,"\\'")}')">
+          <div class="inspector-avatar">${i.name.split(' ').map(p=>p[0]).slice(0,2).join('')}</div>
+          <div><div class="inspector-name">${i.name}</div><div class="inspector-title">${i.title}</div></div>
+          <span class="inspector-check">✓</span>
+        </button>`).join('')}
+        <button class="inspector-card ${state.inspector==='No preference'?'selected':''}" onclick="selectInspector('No preference')">
+          <div class="inspector-avatar">—</div>
+          <div><div class="inspector-name">No Preference</div><div class="inspector-title">First available inspector</div></div>
+          <span class="inspector-check">✓</span>
+        </button>
+      </div>` : `<p class="step-sub" style="margin:0;">Inspector details for this area are coming soon — our team will confirm one at scheduling.</p>`}
+    </div>` : '';
+  return `
+    <p class="step-eyebrow">Step 1 of ${totalSteps}</p>
+    <h2 class="step-title">Select Your Service Area</h2>
+    <p class="step-sub">Pricing is calculated for your specific market.</p>
+    <div class="card-grid">${cards}</div>
+    ${inspectorBlock}
+    <div class="nav-row">
+      <button class="btn btn-primary" ${state.location?'':'disabled style="opacity:.5;cursor:not-allowed;"'} onclick="goStep(2)">Continue</button>
+    </div>
+  `;
+}
+function selectLocation(l){ if(state.location!==l){ state.location = l; state.inspector = null; } render(); }
+function selectInspector(name){ state.inspector = (state.inspector===name? null : name); render(); }
+
+function stepProperty(){
+  const types = ["Single Family","Condo","Townhome","Duplex","Commercial"];
+  const typeCards = types.map(t=>`
+    <button class="opt-card ${state.propertyType===t?'selected':''}" onclick="selectPropertyType('${t}')">
+      <div class="name">${t}</div>
+    </button>`).join('');
+  const tier = findTier(state.location, state.sqft);
+  const t = calcTotals();
+  const addonRows = config.addons.filter(a=>a.enabled).map(a=>{
+    const checked = state.addons.includes(a.id);
+    return `<div class="addon-row ${checked?'checked':''}" onclick="toggleAddon('${a.id}')">
+      <div class="addon-left"><div class="chk">${checked?'✓':''}</div><div class="addon-name">${a.name}</div></div>
+      <div class="addon-price">+$${a.price}</div>
+    </div>`;
+  }).join('');
+  const receiptRows = [`<div class="receipt-row"><span>${state.propertyType||'Base'} Inspection</span><span>${money(t.base)}</span></div>`]
+    .concat(state.addons.map(id=>{
+      const a = config.addons.find(x=>x.id===id);
+      return `<div class="receipt-row"><span>${a.name}</span><span>+$${a.price}</span></div>`;
+    })).join('');
+  return `
+    <p class="step-eyebrow">Step 2 of ${totalSteps}</p>
+    <h2 class="step-title">Property Information &amp; Services</h2>
+    <p class="step-sub">${state.location} · Tell us about the property, then pick anything else you'd like included.</p>
+    <div class="card-grid">${typeCards}</div>
+
+    <div style="margin-top:24px;">
+      <label style="font-size:12.5px; font-weight:600; color:rgba(5,10,48,0.7);">Square Footage</label>
+      <div class="sqft-readout" id="sqftReadout">${state.sqft.toLocaleString()} <span>sq ft</span></div>
+      <input type="range" id="sqftRange" min="500" max="5500" step="50" value="${state.sqft}">
+      <div class="range-marks"><span>500</span><span>3000</span><span>5,500+</span></div>
+    </div>
+
+    <div class="price-panel">
+      <div class="label">Estimated Base Price</div>
+      <div class="amount">${tier.price===null? '<span class="badge-custom">CUSTOM QUOTE</span>' : money(tier.price)}</div>
+    </div>
+
+    <div class="inspector-panel">
+      <div class="heading">Optional Add-on Services</div>
+      <div class="addon-grid">${addonRows}</div>
+    </div>
+
+    <div class="receipt">
+      ${receiptRows}
+      <div class="receipt-total"><span>Total</span><span>${money(t.total)}</span></div>
+    </div>
+
+    <div class="nav-row">
+      <button class="btn btn-ghost" onclick="goStep(1)">Back</button>
+      <button class="btn btn-primary" ${state.propertyType?'':'disabled style="opacity:.5;cursor:not-allowed;"'} onclick="goStep(3)">Continue</button>
+    </div>
+  `;
+}
+function selectPropertyType(t){ state.propertyType = t; render(); }
+function attachRangeListener(){
+  const r = document.getElementById('sqftRange');
+  if(!r) return;
+  r.addEventListener('input', (e)=>{
+    state.sqft = parseInt(e.target.value,10);
+    document.getElementById('sqftReadout').innerHTML = state.sqft.toLocaleString()+' <span>sq ft</span>';
+    const tier = findTier(state.location, state.sqft);
+    const panelAmt = document.querySelector('.price-panel .amount');
+    if(panelAmt) panelAmt.innerHTML = tier.price===null? '<span class="badge-custom">CUSTOM QUOTE</span>' : money(tier.price);
+    const receiptWrap = document.querySelector('.modal-body .receipt');
+    if(receiptWrap){
+      const t = calcTotals();
+      const receiptRows = [`<div class="receipt-row"><span>${state.propertyType||'Base'} Inspection</span><span>${money(t.base)}</span></div>`]
+        .concat(state.addons.map(id=>{
+          const a = config.addons.find(x=>x.id===id);
+          return `<div class="receipt-row"><span>${a.name}</span><span>+$${a.price}</span></div>`;
+        })).join('');
+      receiptWrap.innerHTML = `${receiptRows}<div class="receipt-total"><span>Total</span><span>${money(t.total)}</span></div>`;
+    }
+  });
+}
+function toggleAddon(id){
+  const i = state.addons.indexOf(id);
+  if(i>-1) state.addons.splice(i,1); else state.addons.push(id);
+  render();
+}
+
+function stepLeadForm(){
+  const l = state.lead;
+  return `
+    <p class="step-eyebrow">Step 3 of ${totalSteps}</p>
+    <h2 class="step-title">Almost There</h2>
+    <p class="step-sub">Enter your details to view your exact price and hold your spot.</p>
+    <div class="row2">
+      <div class="field"><label>First Name</label><input id="lf_first" value="${l.first||''}"></div>
+      <div class="field"><label>Last Name</label><input id="lf_last" value="${l.last||''}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Email</label><input id="lf_email" type="email" value="${l.email||''}"></div>
+      <div class="field"><label>Phone Number</label><input id="lf_phone" type="tel" value="${l.phone||''}"></div>
+    </div>
+    <div class="field"><label>Property Address</label><input id="lf_address" value="${l.address||''}"></div>
+    <div class="row2">
+      <div class="field"><label>City</label><input id="lf_city" value="${l.city||state.location||''}"></div>
+      <div class="field"><label>ZIP Code</label><input id="lf_zip" value="${l.zip||''}"></div>
+    </div>
+    <p class="error-text" id="leadError">Please complete all required fields with a valid email.</p>
+    <div class="nav-row">
+      <button class="btn btn-ghost" onclick="goStep(2)">Back</button>
+      <button class="btn btn-primary" onclick="submitLead()">View My Price</button>
+    </div>
+  `;
+}
+async function submitLead(){
+  const first=val('lf_first'), last=val('lf_last'), email=val('lf_email'), phone=val('lf_phone'),
+        address=val('lf_address'), city=val('lf_city'), zip=val('lf_zip');
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if(!first||!last||!email||!phone||!address||!city||!zip||!emailOk){
+    document.getElementById('leadError').style.display='block'; return;
+  }
+  state.lead = {first,last,email,phone,address,city,zip};
+  const t = calcTotals();
+  const record = {
+    id: 'lead_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+    date: new Date().toISOString(),
+    first,last,email,phone,address,city,zip,
+    area: state.location, inspector: state.inspector||'No preference', propertyType: state.propertyType, sqft: state.sqft,
+    services: state.addons.map(id=>{const a=config.addons.find(x=>x.id===id);return a?a.name:id;}).join('; '),
+    price: t.total
+  };
+  try{ await window.storage.set('leads:'+record.id, JSON.stringify(record), true); }
+  catch(e){ console.error('Could not save lead', e); }
+  goStep(4);
+}
+function val(id){ const el=document.getElementById(id); return el? el.value.trim() : ''; }
+
+function buildSchedulerUrl(){
+  const t = calcTotals();
+  const s = config.settings;
+  const m = s.paramMap;
+  const params = new URLSearchParams();
+  params.set(m.first, state.lead.first);
+  params.set(m.last, state.lead.last);
+  params.set(m.email, state.lead.email);
+  params.set(m.phone, state.lead.phone);
+  params.set(m.address, state.lead.address);
+  params.set(m.city, state.lead.city);
+  params.set(m.zip, state.lead.zip);
+  params.set(m.ptype, state.propertyType);
+  params.set(m.sqft, state.sqft);
+  params.set(m.services, state.addons.map(id=>{const a=config.addons.find(x=>x.id===id);return a?a.name:id;}).join(','));
+  params.set(m.price, Math.round(t.total));
+  params.set(m.region, state.location);
+  if(m.inspector) params.set(m.inspector, state.inspector||'No preference');
+  return s.schedulerUrl + (s.schedulerUrl.includes('?')?'&':'?') + params.toString();
+}
+
+function stepSummary(){
+  const t = calcTotals();
+  return `
+    <p class="step-eyebrow">Step 4 of ${totalSteps}</p>
+    <h2 class="step-title">Your Price Summary</h2>
+    <div class="summary-hero">
+      <div class="tag">Estimated Inspection Cost</div>
+      <div class="amt">${money(t.total)}</div>
+      <div class="summary-chips">
+        <span class="chip">${state.sqft.toLocaleString()} sqft</span>
+        <span class="chip">${state.location}</span>
+        <span class="chip">${state.propertyType}</span>
+        ${state.inspector? `<span class="chip">${state.inspector}</span>` : ''}
+      </div>
+    </div>
+    <div class="receipt">
+      <div class="receipt-row"><span>Base Inspection</span><span>${money(t.base)}</span></div>
+      ${state.addons.map(id=>{const a=config.addons.find(x=>x.id===id); return `<div class="receipt-row"><span>${a.name}</span><span>+$${a.price}</span></div>`;}).join('')}
+      ${t.discountAmt>0?`<div class="receipt-row" style="color:var(--green);"><span>Discount</span><span>-$${t.discountAmt.toFixed(2)}</span></div>`:''}
+      ${t.tax>0?`<div class="receipt-row"><span>Tax</span><span>$${t.tax.toFixed(2)}</span></div>`:''}
+      <div class="receipt-total"><span>Total</span><span>${money(t.total)}</span></div>
+    </div>
+    <p style="font-size:12.5px; color:rgba(5,10,48,0.55); margin-top:14px;">
+      Scheduling opens with your name, contact info, address, property type, square footage, selected services,
+      inspector, and price already filled in — you won't need to enter anything twice.
+    </p>
+    <div class="nav-row" style="flex-direction:column;">
+      <button class="btn btn-primary" onclick="scheduleInspection()">Schedule Inspection →</button>
+      <button class="btn btn-ghost" style="width:100%;" onclick="callNow()">Call Now: ${config.settings.phone}</button>
+    </div>
+  `;
+}
+function callNow(){ window.open('tel:'+config.settings.phone.replace(/[^\d+]/g,''),'_self'); }
+function scheduleInspection(){
+  state.schedulerUrl = buildSchedulerUrl();
+  goStep(5);
+}
+
+function stepThankYou(){
+  const t = calcTotals();
+  const s = config.settings;
+  return `
+    <p class="step-eyebrow">Step 5 of ${totalSteps}</p>
+    <h2 class="step-title">You're All Set, ${state.lead.first}!</h2>
+    <p class="step-sub">${s.thankYouMessage}</p>
+    <div class="price-panel">
+      <div class="label">Final Estimate</div>
+      <div class="amount">${money(t.total)}</div>
+    </div>
+    <p style="font-size:12.5px; color:rgba(5,10,48,0.55); margin-top:16px;">
+      We've got your details${state.inspector?`, including ${state.inspector} as your requested inspector,`:''} on file and ready for scheduling.
+    </p>
+  `;
+}
+
+function goStep(n){ step = n; render(); }
+
+/* ============================= ADMIN DASHBOARD ============================= */
+let adminUnlocked = false;
+let activeLocation = "Austin";
+
+async function toggleAdmin(open){
+  document.getElementById('adminWrap').classList.toggle('open', open);
+  document.querySelector('.launcher-wrap').style.display = open? 'none':'flex';
+  document.querySelector('.admin-link').style.display = open? 'none':'block';
+  if(open && !adminUnlocked){
+    document.getElementById('adminLogin').style.display='block';
+    document.getElementById('adminMain').style.display='none';
+  }
+}
+function checkAdminLogin(){
+  const pass = document.getElementById('adminPass').value;
+  if(pass === 'admin123'){
+    adminUnlocked = true;
+    document.getElementById('adminLogin').style.display='none';
+    document.getElementById('adminMain').style.display='block';
+    renderPricingPanel(); renderAddonsPanel(); renderInspectorsPanel(); renderSettingsPanel(); loadLeads();
+  } else {
+    alert('Incorrect password. (Demo default: admin123 — change this in a production build.)');
+  }
+}
+function showTab(name){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if(name==='leads') loadLeads();
+}
+
+function renderPricingPanel(){
+  const pillsWrap = document.getElementById('locPills');
+  pillsWrap.innerHTML = config.locations.map(l=>`
+    <div class="loc-pill ${l===activeLocation?'active':''} ${config.enabledLocations[l]===false?'disabled-loc':''}" onclick="pickLocation('${l}')">${l}</div>
+  `).join('') + `<div class="loc-pill" style="border-style:dashed;" onclick="addLocation()">+ Add Area</div>`;
+  renderPricingTable();
+}
+function pickLocation(l){ activeLocation = l; renderPricingPanel(); }
+function addLocation(){
+  const name = prompt('New service area name (e.g. Fort Worth):');
+  if(!name) return;
+  if(!config.locations.includes(name)){
+    config.locations.push(name);
+    config.enabledLocations[name] = true;
+    config.pricingByLocation[name] = JSON.parse(JSON.stringify(DEFAULT_TIERS));
+    config.inspectorsByLocation[name] = [];
+  }
+  activeLocation = name;
+  renderPricingPanel(); saveConfig();
+}
+function renderPricingTable(){
+  const tbody = document.querySelector('#pricingTable tbody');
+  const tiers = config.pricingByLocation[activeLocation] || [];
+  tbody.innerHTML = tiers.map((t,i)=>`
+    <tr>
+      <td>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <input type="number" value="${t.min}" onchange="updateTier(${i},'min',this.value)" style="width:80px;"> –
+          <input type="number" value="${t.max>=999999?'':t.max}" placeholder="+" onchange="updateTier(${i},'max',this.value)" style="width:80px;">
+        </div>
+      </td>
+      <td><input type="text" value="${t.price===null?'':t.price}" placeholder="Custom" onchange="updateTier(${i},'price',this.value)"></td>
+      <td><button class="btn btn-ghost small-btn" onclick="removeTier(${i})">✕</button></td>
+    </tr>
+  `).join('');
+  const toggle = config.enabledLocations[activeLocation]!==false;
+  const header = document.querySelector('#panel-pricing .admin-card h3');
+  header.innerHTML = `Service Areas <span style="font-size:12px; font-weight:400; color:rgba(5,10,48,0.5);">— editing ${activeLocation}</span>
+    <label class="switch" style="float:right;"><input type="checkbox" ${toggle?'checked':''} onchange="toggleLocation(this.checked)"><span class="slider-el"></span></label>`;
+}
+function updateTier(i, field, value){
+  const tiers = config.pricingByLocation[activeLocation];
+  if(field==='price') tiers[i].price = value===''? null : parseFloat(value);
+  else if(field==='max') tiers[i].max = value===''? 999999 : parseInt(value,10);
+  else tiers[i][field] = parseInt(value,10);
+  saveConfig(); flashSave('saveNotePricing');
+}
+function addPriceRow(){
+  const tiers = config.pricingByLocation[activeLocation];
+  const last = tiers[tiers.length-1];
+  tiers.push({min:(last?last.max+1:0), max:(last?last.max+500:500), price:0});
+  renderPricingTable(); saveConfig();
+}
+function removeTier(i){ config.pricingByLocation[activeLocation].splice(i,1); renderPricingTable(); saveConfig(); }
+function toggleLocation(enabled){ config.enabledLocations[activeLocation] = enabled; saveConfig(); renderPricingPanel(); }
+
+function renderAddonsPanel(){
+  const tbody = document.querySelector('#addonsTable tbody');
+  tbody.innerHTML = config.addons.map((a,i)=>`
+    <tr>
+      <td><input type="text" value="${a.name}" onchange="updateAddon(${i},'name',this.value)"></td>
+      <td><input type="number" value="${a.price}" onchange="updateAddon(${i},'price',this.value)"></td>
+      <td><label class="switch"><input type="checkbox" ${a.enabled?'checked':''} onchange="updateAddon(${i},'enabled',this.checked)"><span class="slider-el"></span></label></td>
+      <td><button class="btn btn-ghost small-btn" onclick="removeAddon(${i})">✕</button></td>
+    </tr>
+  `).join('');
+}
+function updateAddon(i, field, value){
+  if(field==='price') config.addons[i].price = parseFloat(value)||0;
+  else if(field==='enabled') config.addons[i].enabled = value;
+  else config.addons[i].name = value;
+  saveConfig(); flashSave('saveNoteAddons');
+}
+function addAddonRow(){
+  config.addons.push({id:'svc_'+Date.now(), name:'New Service', price:0, enabled:true});
+  renderAddonsPanel(); saveConfig();
+}
+function removeAddon(i){ config.addons.splice(i,1); renderAddonsPanel(); saveConfig(); }
+
+let activeInspectorLocation = "Austin";
+function renderInspectorsPanel(){
+  const pillsWrap = document.getElementById('inspectorLocPills');
+  pillsWrap.innerHTML = config.locations.map(l=>`
+    <div class="loc-pill ${l===activeInspectorLocation?'active':''}" onclick="pickInspectorLocation('${l}')">${l}</div>
+  `).join('');
+  renderInspectorsTable();
+}
+function pickInspectorLocation(l){ activeInspectorLocation = l; renderInspectorsPanel(); }
+function renderInspectorsTable(){
+  if(!config.inspectorsByLocation[activeInspectorLocation]) config.inspectorsByLocation[activeInspectorLocation] = [];
+  const list = config.inspectorsByLocation[activeInspectorLocation];
+  const tbody = document.querySelector('#inspectorsTable tbody');
+  tbody.innerHTML = list.length? list.map((ins,i)=>`
+    <tr>
+      <td><input type="text" value="${ins.name}" onchange="updateInspector(${i},'name',this.value)"></td>
+      <td><input type="text" value="${ins.title}" onchange="updateInspector(${i},'title',this.value)"></td>
+      <td><button class="btn btn-ghost small-btn" onclick="removeInspector(${i})">✕</button></td>
+    </tr>
+  `).join('') : `<tr><td colspan="3" style="color:rgba(5,10,48,0.45);">No inspectors listed for ${activeInspectorLocation} yet.</td></tr>`;
+}
+function updateInspector(i, field, value){
+  config.inspectorsByLocation[activeInspectorLocation][i][field] = value;
+  saveConfig(); flashSave('saveNoteInspectors');
+}
+function addInspectorRow(){
+  config.inspectorsByLocation[activeInspectorLocation].push({name:'New Inspector', title:'Certified Inspector'});
+  renderInspectorsTable(); saveConfig();
+}
+function removeInspector(i){
+  config.inspectorsByLocation[activeInspectorLocation].splice(i,1);
+  renderInspectorsTable(); saveConfig();
+}
+
+function renderSettingsPanel(){
+  const s = config.settings;
+  document.getElementById('setTax').value = s.taxRate;
+  document.getElementById('setDiscount').value = s.discount;
+  document.getElementById('setCoupon').value = s.couponCode;
+  document.getElementById('setCouponPct').value = s.couponPct;
+  document.getElementById('setThankYou').value = s.thankYouMessage;
+  document.getElementById('setNotifyEmail').value = s.notifyEmail;
+  document.getElementById('setPhone').value = s.phone;
+  document.getElementById('setSchedulerUrl').value = s.schedulerUrl;
+  const m = s.paramMap;
+  document.getElementById('pmFirst').value = m.first;
+  document.getElementById('pmLast').value = m.last;
+  document.getElementById('pmEmail').value = m.email;
+  document.getElementById('pmPhone').value = m.phone;
+  document.getElementById('pmAddress').value = m.address;
+  document.getElementById('pmCity').value = m.city;
+  document.getElementById('pmZip').value = m.zip;
+  document.getElementById('pmPtype').value = m.ptype;
+  document.getElementById('pmSqft').value = m.sqft;
+  document.getElementById('pmServices').value = m.services;
+  document.getElementById('pmPrice').value = m.price;
+  document.getElementById('pmRegion').value = m.region;
+  document.getElementById('pmInspector').value = m.inspector;
+}
+function saveSettings(){
+  const s = config.settings;
+  s.taxRate = parseFloat(document.getElementById('setTax').value)||0;
+  s.discount = parseFloat(document.getElementById('setDiscount').value)||0;
+  s.couponCode = document.getElementById('setCoupon').value;
+  s.couponPct = parseFloat(document.getElementById('setCouponPct').value)||0;
+  s.thankYouMessage = document.getElementById('setThankYou').value;
+  s.notifyEmail = document.getElementById('setNotifyEmail').value;
+  s.phone = document.getElementById('setPhone').value;
+  s.schedulerUrl = document.getElementById('setSchedulerUrl').value;
+  s.paramMap = {
+    first:document.getElementById('pmFirst').value, last:document.getElementById('pmLast').value,
+    email:document.getElementById('pmEmail').value, phone:document.getElementById('pmPhone').value,
+    address:document.getElementById('pmAddress').value, city:document.getElementById('pmCity').value,
+    zip:document.getElementById('pmZip').value, ptype:document.getElementById('pmPtype').value,
+    sqft:document.getElementById('pmSqft').value, services:document.getElementById('pmServices').value,
+    price:document.getElementById('pmPrice').value, region:document.getElementById('pmRegion').value,
+    inspector:document.getElementById('pmInspector').value
+  };
+  saveConfig();
+  flashSave('saveNoteSettings'); flashSave('saveNoteMap');
+}
+function flashSave(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 1400);
+}
+
+let cachedLeads = [];
+async function loadLeads(){
+  const wrap = document.getElementById('leadsTableWrap');
+  wrap.innerHTML = '<div class="loading">Loading leads…</div>';
+  try{
+    const list = await window.storage.list('leads:', true);
+    const keys = (list && list.keys) || [];
+    const leads = [];
+    for(const k of keys){
+      try{
+        const r = await window.storage.get(k, true);
+        if(r && r.value) leads.push(JSON.parse(r.value));
+      }catch(e){}
+    }
+    leads.sort((a,b)=> new Date(b.date) - new Date(a.date));
+    cachedLeads = leads;
+    if(leads.length===0){
+      wrap.innerHTML = '<div class="empty-state">No leads yet. Submissions from the pricing popup will appear here.</div>';
+      return;
+    }
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Email</th><th>Phone</th><th>Address</th><th>Area</th><th>Inspector</th><th>Sq Ft</th><th>Price</th><th>Date</th>
+    </tr></thead><tbody>${leads.map(l=>`
+      <tr>
+        <td>${l.first} ${l.last}</td><td>${l.email}</td><td>${l.phone}</td>
+        <td>${l.address}, ${l.city} ${l.zip}</td><td>${l.area}</td><td>${l.inspector||'—'}</td><td>${l.sqft}</td>
+        <td>$${Math.round(l.price)}</td><td>${new Date(l.date).toLocaleDateString()}</td>
+      </tr>`).join('')}</tbody></table>`;
+  }catch(e){
+    wrap.innerHTML = '<div class="empty-state">Could not load leads.</div>';
+  }
+}
+function exportLeadsCSV(){
+  if(!cachedLeads.length){ alert('No leads to export yet.'); return; }
+  const headers = ['Name','Email','Phone','Address','City','ZIP','Area','Inspector','Property Type','Sq Ft','Services','Price','Date'];
+  const rows = cachedLeads.map(l=>[
+    `${l.first} ${l.last}`, l.email, l.phone, l.address, l.city, l.zip, l.area, l.inspector||'', l.propertyType, l.sqft, l.services, l.price, new Date(l.date).toLocaleString()
+  ]);
+  const csv = [headers.join(',')].concat(rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','))).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'leads.csv'; a.click();
+}
+function exportLeadsExcel(){
+  if(!cachedLeads.length){ alert('No leads to export yet.'); return; }
+  const rows = cachedLeads.map(l=>({
+    Name:`${l.first} ${l.last}`, Email:l.email, Phone:l.phone, Address:l.address, City:l.city, ZIP:l.zip,
+    Area:l.area, Inspector:l.inspector||'', "Property Type":l.propertyType, "Sq Ft":l.sqft, Services:l.services, Price:l.price, Date:new Date(l.date).toLocaleString()
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Leads");
+  XLSX.writeFile(wb, "leads.xlsx");
+}
+
+/* ============================= INIT ============================= */
+(async function init(){
+  await loadConfig();
+})();
+</script>
+</body>
+</html>
