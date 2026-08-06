@@ -25,11 +25,15 @@ import {
   Facebook,
   Youtube,
   Linkedin,
+  Star,
+  Quote,
+  Plus,
+  Minus,
 } from "lucide-react";
 import bbiLogo from "@/assets/BBI Logo_official (1).avif";
 import cmiLogo from "@/assets/cmi-logo0.avif";
 import celebrating30 from "@/assets/CELEBRATING 30 YEARS IN BUSINESS.avif";
-import heroHome from "@/assets/Gemini_Generated_Image_vttwvevttwvevttw.png";
+import heroHome from "@/assets/hero-image-new.jpg";
 import inspectorAbout from "@/assets/inspector-about.jpg";
 import reportMockup from "@/assets/report-mockup.jpg";
 import svcResidential from "@/assets/svc-residential.jpg";
@@ -453,15 +457,10 @@ function Hero() {
             transition={{ duration: 0.8, delay: 0.6 }}
             className="mt-10 flex flex-wrap items-center justify-center gap-3"
           >
-            <a href="#schedule" className="btn-primary">
-              Schedule an Inspection <ArrowUpRight className="h-4 w-4" />
-            </a>
-            <a
-              href="#report"
-              className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 backdrop-blur-md px-6 py-[0.9rem] text-sm font-medium text-white transition-all hover:bg-white/20 hover:border-white/50"
-            >
-              <Play className="h-4 w-4" /> View a Sample Report
-            </a>
+            <div className="inline-flex items-center gap-4 rounded-full border border-white/20 bg-white/10 backdrop-blur-md px-6 py-3">
+              <img src={celebrating30} alt="30 Years in Business" className="h-16 w-auto" />
+              <img src={cmiLogo} alt="Certified Master Inspector" className="h-16 w-auto" />
+            </div>
           </motion.div>
 
           {/* Compact trust pill */}
@@ -1069,6 +1068,258 @@ function MoreServices() {
   );
 }
 
+/* ────────────────────────────────  GOOGLE ICON  ──────────────────────────────── */
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.09A6.99 6.99 0 0 1 5.4 12c0-.73.13-1.43.36-2.09V7.07H2.18A11.94 11.94 0 0 0 1 12c0 1.93.46 3.76 1.18 5.35l3.66-3.26z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z" />
+    </svg>
+  );
+}
+
+/* ────────────────────────────────  REVIEWS  ──────────────────────────────── */
+const REVIEWS = [
+  {
+    name: "Angelica Teachout",
+    text: "I have always had a great experience working with Bryan and Bryan, however, the attention to detail on this most recent transaction was phenomenal! You cannot ask for a better combination of professionalism, care, and attention to detail.",
+  },
+  {
+    name: "David De Leon",
+    text: "Had a great experience with these fellas. The inspectors were great, very knowledgeable, and the service rep on the phone was incredibly helpful — went out of their way to accommodate my scheduling.",
+  },
+  {
+    name: "Ashley Rodriguez",
+    text: "Since the moment I called they were so professional and helpful. Our inspector was so patient and answered all my questions and took his time. Definitely recommend.",
+  },
+  {
+    name: "MiShell M.",
+    text: "Our inspector was fantastic! He did a very thorough inspection, and emailed a complete report the same evening.",
+  },
+  {
+    name: "Vivian W.",
+    text: "Zachary did a thorough job inspecting the new house we are buying. Thank you Zachary Hernandez from Bryan and Bryan Inspections!",
+  },
+  {
+    name: "Kal F.",
+    text: "The guy who came out to help us was super, super sweet and professional — he even caught a tiny leak in the sink!",
+  },
+];
+
+function StarRow({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <div className="flex gap-0.5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star key={i} className={`${className} fill-primary text-primary`} />
+      ))}
+    </div>
+  );
+}
+
+function Reviews() {
+  return (
+    <section id="reviews" className="py-24 md:py-32 bg-secondary/40 grain">
+      <div className="container-x">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7 }}
+          className="text-center max-w-2xl mx-auto mb-14"
+        >
+          <div className="eyebrow mb-4 flex items-center justify-center gap-2">
+            <GoogleIcon className="h-4 w-4" /> Google Reviews
+          </div>
+          <h2 className="text-4xl md:text-5xl font-display text-balance leading-[1.05]">
+            What Homeowners Are <span className="italic text-primary">Saying</span>
+          </h2>
+          <div className="mt-5 flex items-center justify-center gap-3 flex-wrap">
+            <StarRow className="h-5 w-5" />
+            <span className="font-display text-lg leading-none">4.9</span>
+            <span className="text-muted-foreground text-sm">out of 5 · 4,000+ Google reviews</span>
+          </div>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {REVIEWS.map((r, i) => (
+            <motion.div
+              key={r.name}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: i * 0.08 }}
+              className="relative flex flex-col rounded-3xl bg-card border border-border p-7 shadow-[var(--shadow-soft)]"
+            >
+              <Quote className="h-6 w-6 text-primary/25 mb-3" fill="currentColor" />
+              <StarRow />
+              <p className="mt-3 text-sm text-foreground/80 leading-relaxed flex-1">"{r.text}"</p>
+              <div className="mt-6 flex items-center gap-3 pt-4 border-t border-border">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 font-display font-bold text-sm text-primary">
+                  {r.name.charAt(0)}
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-foreground">{r.name}</div>
+                  <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <GoogleIcon className="h-3 w-3" /> Verified Google Review
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.3 }}
+          className="mt-12 text-center"
+        >
+          <a
+            href="https://www.google.com/search?q=bryan+and+bryan+inspections+reviews"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-ghost"
+          >
+            Read All Reviews on Google <ArrowUpRight className="h-4 w-4" />
+          </a>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────────────  FAQ  ──────────────────────────────── */
+const FAQS = [
+  {
+    q: "Why do I need a home inspection?",
+    a: "The purchase of a home is one of the biggest investments you'll ever make. A professional inspection helps you spot costly defects before you close, so you can move forward with clarity and confidence.",
+  },
+  {
+    q: "What does a typical inspection cover?",
+    a: "Every inspection covers structural elements (foundation, roof, doors, windows) and mechanical systems (HVAC, plumbing, electrical), plus a complimentary Wood Destroying Insect Report.",
+  },
+  {
+    q: "Do you assess the foundation during home inspections?",
+    a: "Yes — we're one of the few inspection companies that actually take digital measurements of the foundation for accuracy, rather than relying on a visual check alone.",
+  },
+  {
+    q: "How long does an inspection take?",
+    a: "On average, an inspection takes about one hour per 1,000 square feet of the home.",
+  },
+  {
+    q: "Should I be present at the inspection?",
+    a: "It's not required, but we always encourage it — being there lets you see issues firsthand and ask questions as we go.",
+  },
+  {
+    q: "When will I receive my report?",
+    a: "You'll receive your full, easy-to-read report by 9am the day after your inspection.",
+  },
+  {
+    q: "What if I'm not satisfied with my inspection?",
+    a: "We back every inspection with a 200% Satisfaction Guarantee — if you're not happy, we'll refund your fee and pay for a second inspection, up to the cost of the original.",
+  },
+  {
+    q: "Who selects the home inspector?",
+    a: "You do. As the home buyer, the choice of inspector is entirely yours.",
+  },
+];
+
+function FAQSection() {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+
+  return (
+    <section id="faq" className="py-24 md:py-32">
+      <div className="container-x">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7 }}
+          className="text-center max-w-2xl mx-auto mb-14"
+        >
+          <div className="eyebrow mb-4">Common Questions</div>
+          <h2 className="text-4xl md:text-5xl font-display text-balance leading-[1.05]">
+            Frequently Asked <span className="italic text-primary">Questions</span>
+          </h2>
+          <p className="mt-4 text-muted-foreground text-balance">
+            Straight answers about our inspections, reports, and guarantee — so you know exactly what to expect.
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-6 items-start">
+          {/* CTA card */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="relative overflow-hidden rounded-3xl bg-ink text-cream p-8 md:p-10 shadow-[var(--shadow-elegant)] grain lg:sticky lg:top-28"
+          >
+            <div className="absolute -top-16 -right-16 h-56 w-56 rounded-full bg-primary/25 blur-[100px]" />
+            <div className="relative">
+              <div className="eyebrow mb-4">We're Here to Help</div>
+              <h3 className="font-display text-2xl md:text-3xl leading-tight">
+                Still have <span className="italic text-primary">questions?</span>
+              </h3>
+              <p className="mt-4 text-cream/70 text-sm leading-relaxed">
+                Our team is happy to walk you through what to expect — before, during, and after your inspection.
+              </p>
+              <a href={PHONE_HREF} className="mt-7 btn-primary">
+                <Phone className="h-4 w-4" /> Call {PHONE}
+              </a>
+            </div>
+          </motion.div>
+
+          {/* Accordion */}
+          <div className="space-y-3">
+            {FAQS.map((item, i) => {
+              const isOpen = openIndex === i;
+              return (
+                <motion.div
+                  key={item.q}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: i * 0.05 }}
+                  className={`rounded-2xl border transition-colors ${isOpen ? "border-primary/30 bg-accent/40" : "border-border bg-card"}`}
+                >
+                  <button
+                    onClick={() => setOpenIndex(isOpen ? null : i)}
+                    className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+                  >
+                    <span className="font-medium text-[15px] md:text-base">{item.q}</span>
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors ${isOpen ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}
+                    >
+                      {isOpen ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                    </span>
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                        className="overflow-hidden"
+                      >
+                        <p className="px-6 pb-5 text-sm text-muted-foreground leading-relaxed">{item.a}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ────────────────────────────────  SCHEDULE CTA  ──────────────────────────────── */
 function ScheduleCTA() {
   return (
@@ -1259,6 +1510,8 @@ export default function HomePage() {
         <WhySetsApart />
         <ReportSection />
         <MoreServices />
+        <Reviews />
+        <FAQSection />
         <ScheduleCTA />
       </main>
       <Footer />
