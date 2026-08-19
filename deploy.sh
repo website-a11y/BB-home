@@ -58,10 +58,18 @@ echo "  now at $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)"
 
 # --------------------------------------------------------------- dependencies
 log "Installing dependencies"
-if [ -f package-lock.json ]; then
-  npm ci
+# `npm ci` is preferred (exact, reproducible), but this repo's package-lock.json
+# has 28 entries flagged "extraneous" — including the whole esbuild subtree —
+# because it was written from a polluted node_modules instead of resolved from
+# package.json. npm treats children of an extraneous node as hard requirements,
+# so `npm ci` tries to install @esbuild/aix-ppc64 on linux/x64 and dies with
+# EBADPLATFORM. `npm install` re-resolves per-platform and works. The fallback
+# self-heals: once the lockfile is regenerated cleanly, `npm ci` takes over.
+if [ -f package-lock.json ] && npm ci --no-audit --no-fund; then
+  echo "  installed from package-lock.json (npm ci)"
 else
-  npm install
+  echo "  npm ci unusable — falling back to npm install (see comment above)"
+  npm install --no-audit --no-fund
 fi
 
 # --------------------------------------------------------------------- build
