@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+#Your 2 commands from now on
+# cd /home/digilatics-bb/htdocs/bb.digilatics.co
+# ./deploy.sh
+#
 #
 # Deploy script for bb.digilatics.co (TanStack Start + Nitro node-server)
 #
@@ -8,6 +12,7 @@
 #   App port: 3009  (must match the "App Port" in CloudPanel > Node.js Settings)
 #
 # Usage:
+#   cd /home/digilatics-bb/htdocs/bb.digilatics.co # for path
 #   ./deploy.sh              # deploy the current branch (default: main)
 #   ./deploy.sh main         # deploy a specific branch
 #
