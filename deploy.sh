@@ -100,14 +100,35 @@ export NODE_ENV=production
 export PORT="$APP_PORT"
 export HOST="$APP_HOST"
 
+# Recreate the pm2 entry instead of restarting it. A pm2 process remembers the
+# script path, cwd and env from when it was FIRST created. If that entry points at
+# another directory or an older .output (e.g. one unpacked from a tarball), then
+# `pm2 restart` faithfully relaunches that old code and the deploy has no visible
+# effect at all — a fresh build, a clean restart, and a stale site. Deleting and
+# starting pins script, cwd and PORT to this checkout on every deploy. Costs about
+# a second of downtime, which is worth not shipping invisible deploys.
 if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
-  pm2 restart "$APP_NAME" --update-env
-else
-  pm2 start "$ENTRY" --name "$APP_NAME" --time
+  echo "  replacing existing pm2 entry, which was running:"
+  pm2 describe "$APP_NAME" 2>/dev/null \
+    | grep -E 'script path|exec cwd|script args' | sed 's/^/    /' || true
+  pm2 delete "$APP_NAME" >/dev/null
 fi
 
+pm2 start "$ENTRY" --name "$APP_NAME" --cwd "$PWD" --time
 pm2 save >/dev/null
 sleep 3
+
+# Whoever holds the port is what nginx talks to. If that is not the process we just
+# started (a leftover node, another app), our build is running but unreachable.
+if command -v ss >/dev/null 2>&1; then
+  port_pid="$(ss -ltnpH "sport = :$APP_PORT" 2>/dev/null | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2)"
+  pm2_pid="$(pm2 pid "$APP_NAME" 2>/dev/null | tr -d '[:space:]')"
+  echo "  port $APP_PORT held by pid ${port_pid:-none}; pm2 '$APP_NAME' pid ${pm2_pid:-none}"
+  if [ -n "$port_pid" ] && [ -n "$pm2_pid" ] && [ "$port_pid" != "$pm2_pid" ]; then
+    printf '  \033[1;31m! Another process owns port %s — nginx is talking to it, not to us.\033[0m\n' "$APP_PORT"
+    printf '    Inspect it with:  ps -fp %s\n' "$port_pid"
+  fi
+fi
 
 # ---------------------------------------------------------------- health check
 log "Health check"
