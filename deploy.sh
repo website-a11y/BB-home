@@ -18,6 +18,7 @@ APP_NAME="bb-home"
 APP_PORT="3009"
 APP_HOST="0.0.0.0"
 ENTRY=".output/server/index.mjs"
+PUBLIC_URL="bb.digilatics.co"
 
 # Always run from the directory this script lives in.
 cd "$(dirname "$0")"
@@ -39,18 +40,20 @@ echo "  npm    $(npm -v)"
 echo "  branch $BRANCH"
 echo "  dir    $(pwd)"
 
-# Refuse to deploy on top of uncommitted local edits — they would be lost or
-# would make `git pull` fail halfway through.
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  git status --short
-  fail "Uncommitted changes in the working tree. Commit, stash, or 'git checkout .' first."
-fi
-
 # ------------------------------------------------------------------- pull code
+# This checkout is a deploy target, not a workspace: whatever origin says is the
+# truth. Tracked local edits are discarded (npm rewriting package-lock.json, a
+# stray hotfix, a file-mode flip) so a deploy can never wedge on a dirty tree.
 log "Fetching origin/$BRANCH"
 git fetch origin "$BRANCH"
-git checkout "$BRANCH"
-git pull --ff-only origin "$BRANCH"
+
+if ! git diff --quiet HEAD -- || ! git diff --cached --quiet; then
+  echo "  discarding local changes to tracked files:"
+  git status --short | sed 's/^/    /'
+fi
+
+git checkout -q "$BRANCH" 2>/dev/null || git checkout -q -B "$BRANCH" "origin/$BRANCH"
+git reset --hard "origin/$BRANCH"
 echo "  now at $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)"
 
 # --------------------------------------------------------------- dependencies
@@ -88,13 +91,31 @@ sleep 3
 log "Health check"
 pm2 list | grep -E "id|$APP_NAME" || true
 
-if curl -fsS -o /dev/null -w '  HTTP %{http_code} from http://127.0.0.1:%s\n' \
-     "http://127.0.0.1:$APP_PORT/" 2>/dev/null; then
-  :
-else
-  printf '  \033[1;33m! No response on 127.0.0.1:%s — check logs: pm2 logs %s --lines 50\033[0m\n' \
+# The node app on 127.0.0.1:$APP_PORT is what we just deployed. The public URL is
+# whatever the CloudPanel vhost proxies to. If the two disagree, the vhost (or a
+# cache) is serving something else and no amount of rebuilding will change it.
+# --compressed matters: without it curl prints gzip bytes and grep says "binary
+# file matches" instead of showing the title.
+local_code="$(curl -fsS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$APP_PORT/" 2>/dev/null || echo 000)"
+local_title="$(curl -fsS --compressed "http://127.0.0.1:$APP_PORT/" 2>/dev/null \
+  | grep -o -m1 '<title>[^<]*</title>' || echo '(no title)')"
+echo "  local  127.0.0.1:$APP_PORT  HTTP $local_code  $local_title"
+
+if [ "$local_code" = "000" ]; then
+  printf '  \033[1;33m! App is not answering on 127.0.0.1:%s — run: pm2 logs %s --lines 50\033[0m\n' \
     "$APP_PORT" "$APP_NAME"
 fi
 
-printf '\n\033[1;32m✓ Deployed %s (%s) → https://bb.digilatics.co\033[0m\n' \
-  "$(git rev-parse --short HEAD)" "$BRANCH"
+public_code="$(curl -fsS -o /dev/null -w '%{http_code}' "https://$PUBLIC_URL/" 2>/dev/null || echo 000)"
+public_title="$(curl -fsS --compressed "https://$PUBLIC_URL/" 2>/dev/null \
+  | grep -o -m1 '<title>[^<]*</title>' || echo '(no title)')"
+echo "  public $PUBLIC_URL  HTTP $public_code  $public_title"
+
+if [ "$local_title" != "$public_title" ]; then
+  printf '  \033[1;33m! Local and public HTML differ: the vhost is not proxying to port %s,\n' "$APP_PORT"
+  printf '    or a cache/CDN sits in front. Check CloudPanel > Vhost for\n'
+  printf '    "proxy_pass http://127.0.0.1:%s;" and purge any Cloudflare cache.\033[0m\n' "$APP_PORT"
+fi
+
+printf '\n\033[1;32m✓ Deployed %s (%s) → https://%s\033[0m\n' \
+  "$(git rev-parse --short HEAD)" "$BRANCH" "$PUBLIC_URL"
