@@ -12,4 +12,10 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Default target is Cloudflare Workers (cloudflare-module). Overridden to Nitro's
+  // node-server preset so `npm run build` produces a plain Node app (.output/server/index.mjs)
+  // that can run on a regular VPS (e.g. CloudPanel) instead of a Cloudflare-specific bundle.
+  nitro: {
+    preset: "node-server",
+  },
 });

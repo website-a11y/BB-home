@@ -63,31 +63,6 @@ const SERVICES_MEGA: { label: string; desc: string; icon: typeof ShieldCheck; im
   { label: "Solar", desc: "Panel & system evaluation", icon: Sun, img: svcSolar },
 ];
 
-function SchedulePopup({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const onMessage = (e: MessageEvent) => {
-      if (e.data?.type === "schedule-popup-close") onClose();
-    };
-    window.addEventListener("message", onMessage);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("message", onMessage);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-[1000]">
-      <iframe
-        src="/inspection-pricing.html?embed=popup"
-        title="Instant Inspection Pricing"
-        className="h-full w-full border-0"
-      />
-    </div>
-  );
-}
-
 const NAV = [
   { label: "Home", href: "#top" },
   { label: "About", href: "#about" },
@@ -98,7 +73,7 @@ const NAV = [
 ];
 
 /* ────────────────────────────────  HEADER  ──────────────────────────────── */
-function Header({ onSchedule }: { onSchedule: () => void }) {
+function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [pastHero, setPastHero] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -267,14 +242,7 @@ function Header({ onSchedule }: { onSchedule: () => void }) {
                                   </a>
                                 </div>
                               </div>
-                              <a
-                                href="/inspection-pricing.html"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  onSchedule();
-                                }}
-                                className="btn-primary text-xs px-3.5 py-2"
-                              >
+                              <a href="#schedule" className="btn-primary text-xs px-3.5 py-2">
                                 Schedule <ArrowUpRight className="h-3.5 w-3.5" />
                               </a>
                             </div>
@@ -302,14 +270,7 @@ function Header({ onSchedule }: { onSchedule: () => void }) {
             <Phone className="h-4 w-4" />
             {PHONE}
           </a>
-          <a
-            href="/inspection-pricing.html"
-            onClick={(e) => {
-              e.preventDefault();
-              onSchedule();
-            }}
-            className="btn-primary text-sm px-5 py-2.5"
-          >
+          <a href="#schedule" className="btn-primary text-sm px-5 py-2.5">
             Schedule Now <ArrowUpRight className="h-4 w-4" />
           </a>
         </div>
@@ -347,15 +308,7 @@ function Header({ onSchedule }: { onSchedule: () => void }) {
               <a href={PHONE_HREF} className="mt-4 btn-ghost">
                 <Phone className="h-4 w-4" /> {PHONE}
               </a>
-              <a
-                href="/inspection-pricing.html"
-                className="mt-2 btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMenuOpen(false);
-                  onSchedule();
-                }}
-              >
+              <a href="#schedule" className="mt-2 btn-primary" onClick={() => setMenuOpen(false)}>
                 Schedule Now
               </a>
             </div>
@@ -376,7 +329,7 @@ function Hero() {
   const contentOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
 
   return (
-    <section ref={ref} id="top" className="relative isolate min-h-screen flex items-center pt-28 pb-16 overflow-hidden grain">
+    <section ref={ref} id="top" className="relative isolate min-h-screen flex items-center pt-32 pb-24 overflow-hidden grain">
       {/* Background photo with scroll parallax */}
       <motion.div style={{ y, scale }} className="absolute inset-0 -z-30">
         <img
@@ -390,8 +343,9 @@ function Hero() {
       </motion.div>
 
       {/* Mood + legibility overlays — neutral black, no color cast */}
-      <div className="absolute inset-0 -z-20 bg-gradient-to-b from-black/55 via-black/20 to-black/65" />
-      <div className="absolute inset-0 -z-20 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
+      <div className="absolute inset-0 -z-20 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
+      <div className="absolute inset-0 -z-20 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+      <div className="absolute inset-0 -z-20 bg-black/20" />
 
       {/* Decorative glow orbs */}
       <div className="absolute -top-32 -left-24 h-96 w-96 rounded-full bg-primary/25 blur-[120px] -z-10" />
@@ -445,7 +399,7 @@ function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="mt-8 text-base md:text-lg text-white/80 max-w-2xl mx-auto text-balance"
+            className="mt-10 text-base md:text-xl text-white/85 max-w-3xl mx-auto text-balance leading-relaxed"
           >
             Same-day reports, full thermal imaging, and termite checks included on every inspection.
             Move forward with clarity — never costly surprises.
@@ -455,7 +409,7 @@ function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="mt-10 flex flex-wrap items-center justify-center gap-3"
+            className="mt-12 flex flex-wrap items-center justify-center gap-3"
           >
             <div className="inline-flex items-center gap-4 rounded-full border border-white/20 bg-white/10 backdrop-blur-md px-6 py-3">
               <img src={celebrating30} alt="30 Years in Business" className="h-16 w-auto" />
@@ -490,17 +444,6 @@ function Hero() {
             </div>
           </motion.div>
         </div>
-      </motion.div>
-
-      {/* Floating "Same-day Reports" sticker */}
-      <motion.div
-        initial={{ opacity: 0, y: 16, rotate: 0 }}
-        animate={{ opacity: 1, y: 0, rotate: -3 }}
-        transition={{ duration: 0.7, delay: 1 }}
-        className="absolute left-4 bottom-8 md:left-10 md:bottom-10 z-10 rounded-2xl bg-primary text-primary-foreground px-5 py-4 shadow-[var(--shadow-elegant)]"
-      >
-        <div className="eyebrow text-primary-foreground/80">Same-day</div>
-        <div className="font-display text-2xl leading-none mt-1">Reports</div>
       </motion.div>
 
       {/* Scroll cue */}
@@ -566,7 +509,7 @@ function TrustBar() {
 
 /* ────────────────────────────────  MARQUEE CTA  ──────────────────────────────── */
 function CallStrip() {
-  const words = ["Call to schedule", "Same-day reports", "Thermal imaging", "Termite included", "200% guarantee"];
+  const words = ["Same-day reports", "Thermal imaging", "Termite included", "200% guarantee"];
   return (
     <div className="bg-ink text-cream py-6 overflow-hidden">
       <div className="flex whitespace-nowrap marquee gap-16 text-2xl md:text-3xl font-display">
@@ -748,19 +691,6 @@ function About() {
             surprises later.
           </p>
 
-          <div className="mt-8 grid grid-cols-3 gap-6">
-            {[
-              { k: "30+", v: "Years Experience" },
-              { k: "100K+", v: "Inspections" },
-              { k: "4.9★", v: "4,000+ Reviews" },
-            ].map((s) => (
-              <div key={s.v} className="border-t border-border pt-4">
-                <div className="font-display text-3xl">{s.k}</div>
-                <div className="text-xs uppercase tracking-widest text-muted-foreground mt-1">{s.v}</div>
-              </div>
-            ))}
-          </div>
-
           <p className="mt-8 text-muted-foreground leading-relaxed">
             Within 24 hours after the inspection, you will receive an email with a link to your report. Inspection reports from Bryan & Bryan Inspections are intended to be easy-to-read and to the point. Each aspect of our complete home inspection gets its own page, including full color pictures and color arrows to help pinpoint defects in the photos. We provide one of the best looking reports in the industry and we're confident you'll agree!
           </p>
@@ -897,7 +827,7 @@ function MoreServices() {
           <div className="lg:col-span-6">
             <div className="eyebrow mb-4">Statewide Coverage</div>
             <h2 className="text-4xl md:text-5xl font-display font-bold text-balance leading-[1.05]">
-              Residential inspections <span className="italic text-primary font-medium">& much more.</span>
+              One team, <span className="italic text-primary font-medium">every inspection you need.</span>
             </h2>
             <p className="mt-6 text-muted-foreground leading-relaxed">
               Since 1994 we've completed 25,000+ assessments across Texas — one of the state's
@@ -905,7 +835,7 @@ function MoreServices() {
             </p>
 
             <div className="mt-8 space-y-1">
-              {["Mold", "Pest & Termite", "Stucco", "Commercial"].map((s, i) => (
+              {["Residential", "Mold", "Pest", "Stucco", "Commercial"].map((s, i) => (
                 <motion.a
                   key={s}
                   href="#"
@@ -1322,82 +1252,66 @@ function FAQSection() {
 
 /* ────────────────────────────────  SCHEDULE CTA  ──────────────────────────────── */
 function ScheduleCTA() {
+  const stats = [
+    { k: "30+", v: "Years" },
+    { k: "100K+", v: "Inspections" },
+    { k: "4.9★", v: "4,000+ Reviews" },
+    { k: "200%", v: "Guarantee" },
+  ];
+
   return (
-    <section id="schedule" className="py-20 md:py-28 bg-gradient-to-r from-primary via-primary to-primary/85 text-primary-foreground relative overflow-hidden">
-      {/* Background image with overlay */}
-      <div className="absolute inset-0 opacity-[0.08]">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url('${heroHome}')`,
-            filter: 'blur(2px)'
-          }}
-        />
-      </div>
+    <section id="schedule" className="py-24 md:py-32 bg-background">
+      <div className="container-x">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          className="relative overflow-hidden rounded-[2.5rem] bg-primary text-primary-foreground shadow-[var(--shadow-elegant)] grain"
+        >
+          <div className="absolute -top-28 -right-20 h-80 w-80 rounded-full bg-white/15 blur-[110px]" />
+          <div className="absolute -bottom-28 -left-20 h-80 w-80 rounded-full bg-black/15 blur-[110px]" />
 
-      {/* Decorative pattern overlay */}
-      <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_20%_50%,_white_0%,_transparent_50%),radial-gradient(circle_at_80%_80%,_white_0%,_transparent_50%)]" />
-      
-      <div className="container-x relative z-10">
-        <div className="max-w-3xl mx-auto text-center">
-          {/* Benefits badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mb-6"
-          >
-            <div className="inline-block rounded-full bg-white/15 backdrop-blur-md border border-white/20 px-4 py-1.5 text-xs font-medium text-white/90">
-              ✓ Same-Day • ✓ Thermal Imaging • ✓ Termite Included
+          <div className="relative grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-10 items-center p-8 md:p-14">
+            <div>
+              <div className="eyebrow text-white/80 mb-4">Ready when you are</div>
+              <h2 className="text-4xl md:text-6xl font-display text-balance leading-[1.05] text-white">
+                Let's get your <span className="italic">inspection</span> on the calendar.
+              </h2>
+              <p className="mt-5 text-white/85 max-w-md leading-relaxed">
+                Same-day reports, full thermal imaging, and a termite check on every visit —
+                backed by our 200% satisfaction guarantee.
+              </p>
+
+              <div className="mt-9 flex flex-wrap items-center gap-3">
+                <a
+                  href={PHONE_HREF}
+                  className="inline-flex items-center gap-2 rounded-full bg-white text-primary px-8 py-4 font-semibold hover:bg-white/90 transition-all duration-300 shadow-lg hover:scale-[1.03]"
+                >
+                  <Phone className="h-4 w-4" /> Call {PHONE}
+                </a>
+              </div>
             </div>
-          </motion.div>
 
-          {/* Main headline */}
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
-            className="text-4xl md:text-6xl font-display text-balance leading-[1.1] mb-5"
-          >
-            Ready to schedule your <span className="italic">inspection?</span>
-          </motion.h2>
-
-          {/* CTA Buttons */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4"
-          >
-            <a
-              href={PHONE_HREF}
-              className="inline-flex items-center gap-2 rounded-full bg-cream text-ink px-7 md:px-9 py-3 font-semibold hover:bg-cream/95 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
-            >
-              <Phone className="h-4 w-4" />
-              Call Now
-            </a>
-            <a
-              href="#"
-              className="inline-flex items-center gap-2 rounded-full bg-white/20 backdrop-blur-sm border border-white/40 text-white px-7 md:px-9 py-3 font-semibold hover:bg-white/30 transition-all duration-300"
-            >
-              Schedule Online
-              <ArrowUpRight className="h-4 w-4" />
-            </a>
-          </motion.div>
-
-          {/* Trust line */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.3 }}
-            className="mt-5 text-sm text-white/70"
-          >
-            4.9★ Rated by 4,000+ clients • 100% Satisfaction Guaranteed
-          </motion.p>
-        </div>
+            <div className="grid grid-cols-2 gap-3">
+              {stats.map((s, i) => (
+                <motion.div
+                  key={s.k}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.1 + i * 0.08 }}
+                  className="group rounded-2xl bg-white/10 border border-white/20 p-5 md:p-6 text-center backdrop-blur-sm hover:bg-white/15 transition-all"
+                >
+                  <div className="font-display text-2xl md:text-3xl text-white group-hover:scale-110 transition-transform">
+                    {s.k}
+                  </div>
+                  <div className="mt-1.5 text-[10px] uppercase tracking-[0.18em] text-white/70">{s.v}</div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
       </div>
     </section>
   );
@@ -1495,11 +1409,9 @@ function Footer() {
 
 /* ──────────────────────────────── PAGE ──────────────────────────────── */
 export default function HomePage() {
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header onSchedule={() => setScheduleOpen(true)} />
+      <Header />
       <main>
         <Hero />
 
@@ -1515,7 +1427,6 @@ export default function HomePage() {
         <ScheduleCTA />
       </main>
       <Footer />
-      {scheduleOpen && <SchedulePopup onClose={() => setScheduleOpen(false)} />}
     </div>
   );
 }
