@@ -114,14 +114,38 @@ log "Health check"
 pm2 list | grep -E "id|$APP_NAME" || true
 
 # The node app on 127.0.0.1:$APP_PORT is what we just deployed. The public URL is
-# whatever the CloudPanel vhost proxies to. If the two disagree, the vhost (or a
-# cache) is serving something else and no amount of rebuilding will change it.
-# --compressed matters: without it curl prints gzip bytes and grep says "binary
-# file matches" instead of showing the title.
+# whatever the nginx vhost proxies to. If the two disagree, the vhost is pointing
+# somewhere else and no amount of rebuilding will change what visitors see.
+#
+# grep needs BOTH flags here. --compressed so curl decodes gzip/brotli, and -a
+# because this SSR HTML is one enormous line with no terminator, which grep
+# otherwise reports as "binary file matches" — returning an empty title and
+# making the comparison below silently pass by comparing "" to "".
+# head -1 is required as well as -m1: -m1 stops after the first matching LINE, and
+# this whole page is one line, so every match on it would otherwise be printed.
+page_title() {
+  curl -fsS --compressed "$1" 2>/dev/null \
+    | grep -ao '<title>[^<]*</title>' \
+    | head -1 | sed -e 's/<[^>]*>//g' || true
+}
+
+# A fingerprint of the built client bundle. Titles rarely change between deploys,
+# so they are a weak signal; the hashed asset filenames change on every build and
+# prove whether the HTML being served came from this build or an older one.
+page_asset() {
+  curl -fsS --compressed "$1" 2>/dev/null \
+    | grep -ao '/assets/index-[A-Za-z0-9_-]*\.js' \
+    | head -1 || true
+}
+
+built_asset="$(grep -ao -m1 'index-[A-Za-z0-9_-]*\.js' .output/public/index.html 2>/dev/null \
+  || ls .output/public/assets/ 2>/dev/null | grep -o -m1 'index-[A-Za-z0-9_-]*\.js' || echo '?')"
+echo "  built bundle: $built_asset"
+
 local_code="$(curl -fsS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$APP_PORT/" 2>/dev/null || echo 000)"
-local_title="$(curl -fsS --compressed "http://127.0.0.1:$APP_PORT/" 2>/dev/null \
-  | grep -o -m1 '<title>[^<]*</title>' || echo '(no title)')"
-echo "  local  127.0.0.1:$APP_PORT  HTTP $local_code  $local_title"
+local_title="$(page_title "http://127.0.0.1:$APP_PORT/")"
+local_asset="$(page_asset "http://127.0.0.1:$APP_PORT/")"
+echo "  local  127.0.0.1:$APP_PORT  HTTP $local_code  ${local_asset:-no-bundle}  ${local_title:-(no title)}"
 
 if [ "$local_code" = "000" ]; then
   printf '  \033[1;33m! App is not answering on 127.0.0.1:%s — run: pm2 logs %s --lines 50\033[0m\n' \
@@ -129,14 +153,28 @@ if [ "$local_code" = "000" ]; then
 fi
 
 public_code="$(curl -fsS -o /dev/null -w '%{http_code}' "https://$PUBLIC_URL/" 2>/dev/null || echo 000)"
-public_title="$(curl -fsS --compressed "https://$PUBLIC_URL/" 2>/dev/null \
-  | grep -o -m1 '<title>[^<]*</title>' || echo '(no title)')"
-echo "  public $PUBLIC_URL  HTTP $public_code  $public_title"
+public_title="$(page_title "https://$PUBLIC_URL/")"
+public_asset="$(page_asset "https://$PUBLIC_URL/")"
+echo "  public $PUBLIC_URL  HTTP $public_code  ${public_asset:-no-bundle}  ${public_title:-(no title)}"
 
-if [ "$local_title" != "$public_title" ]; then
-  printf '  \033[1;33m! Local and public HTML differ: the vhost is not proxying to port %s,\n' "$APP_PORT"
-  printf '    or a cache/CDN sits in front. Check CloudPanel > Vhost for\n'
-  printf '    "proxy_pass http://127.0.0.1:%s;" and purge any Cloudflare cache.\033[0m\n' "$APP_PORT"
+# Compare bundle fingerprints, not titles. If the public site serves a different
+# hashed bundle than the one just built, visitors are not getting this deploy.
+if [ -n "$local_asset" ] && [ "$local_asset" != "$public_asset" ]; then
+  printf '\n  \033[1;31m! The public site is NOT serving this build.\033[0m\n'
+  printf '    local  %s\n    public %s\n\n' "$local_asset" "$public_asset"
+  printf '    The app on 127.0.0.1:%s is correct, so nginx is sending visitors\n' "$APP_PORT"
+  printf '    somewhere else. Which port does the vhost actually target?\n\n'
+  for conf in /etc/nginx/sites-enabled/"$PUBLIC_URL".conf \
+              /etc/nginx/sites-enabled/"$PUBLIC_URL" \
+              /home/*/conf/nginx/*"$PUBLIC_URL"*; do
+    [ -f "$conf" ] || continue
+    printf '    %s\n' "$conf"
+    grep -nE 'proxy_pass|root ' "$conf" 2>/dev/null | sed 's/^/      /'
+  done
+  printf '\n    Fix the port in CloudPanel > Vhost (or the file above), then:\n'
+  printf '      nginx -t && systemctl reload nginx\n'
+elif [ "$public_code" = "200" ]; then
+  printf '  \033[1;32m  public site is serving this build\033[0m\n'
 fi
 
 printf '\n\033[1;32m✓ Deployed %s (%s) → https://%s\033[0m\n' \
