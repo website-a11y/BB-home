@@ -100,13 +100,48 @@ export NODE_ENV=production
 export PORT="$APP_PORT"
 export HOST="$APP_HOST"
 
+# Which pid is listening on the app port, if any.
+port_owner() {
+  ss -ltnpH "sport = :$APP_PORT" 2>/dev/null \
+    | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2
+}
+
+# pm2 prints an "In-memory PM2 is out-of-date" banner (with version numbers) to
+# stdout, so the pid has to be isolated by whole-line match rather than by
+# scraping digits, or the banner's 7.0.1 ends up glued to the pid.
+pm2_pid_of() {
+  pm2 pid "$1" 2>/dev/null | grep -xE '[0-9]+' | tail -1
+}
+
+# Free the port before starting. nginx sends every visitor to $APP_PORT, so
+# whatever holds that port IS the live site. A stale listener there — an orphaned
+# node from a manual run, or a second pm2 daemon under a different user — beats
+# every deploy silently: we rebuild, pm2 reports online, and the old process keeps
+# answering nginx. CloudPanel dedicates this port to this app, so anything else
+# holding it is by definition stale and safe to stop.
+squatter="$(port_owner)"
+ours="$(pm2_pid_of "$APP_NAME")"
+
+if [ -n "$squatter" ] && [ "$squatter" != "${ours:-}" ]; then
+  printf '  \033[1;33mport %s is held by pid %s, which is not pm2 %s:\033[0m\n' \
+    "$APP_PORT" "$squatter" "$APP_NAME"
+  ps -fp "$squatter" 2>/dev/null | sed 's/^/    /' || true
+  echo "  stopping it so this deploy can own the port"
+  kill "$squatter" 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [ -n "$(port_owner)" ] || break
+    sleep 1
+  done
+  if [ -n "$(port_owner)" ]; then
+    echo "  it ignored SIGTERM — sending SIGKILL"
+    kill -9 "$squatter" 2>/dev/null || true
+    sleep 2
+  fi
+fi
+
 # Recreate the pm2 entry instead of restarting it. A pm2 process remembers the
-# script path, cwd and env from when it was FIRST created. If that entry points at
-# another directory or an older .output (e.g. one unpacked from a tarball), then
-# `pm2 restart` faithfully relaunches that old code and the deploy has no visible
-# effect at all — a fresh build, a clean restart, and a stale site. Deleting and
-# starting pins script, cwd and PORT to this checkout on every deploy. Costs about
-# a second of downtime, which is worth not shipping invisible deploys.
+# script path, cwd and env from when it was FIRST created, so `pm2 restart` can
+# relaunch an older .output and leave the deploy with no visible effect.
 if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
   echo "  replacing existing pm2 entry, which was running:"
   pm2 describe "$APP_NAME" 2>/dev/null \
@@ -118,16 +153,17 @@ pm2 start "$ENTRY" --name "$APP_NAME" --cwd "$PWD" --time
 pm2 save >/dev/null
 sleep 3
 
-# Whoever holds the port is what nginx talks to. If that is not the process we just
-# started (a leftover node, another app), our build is running but unreachable.
-if command -v ss >/dev/null 2>&1; then
-  port_pid="$(ss -ltnpH "sport = :$APP_PORT" 2>/dev/null | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2)"
-  pm2_pid="$(pm2 pid "$APP_NAME" 2>/dev/null | tr -d '[:space:]')"
-  echo "  port $APP_PORT held by pid ${port_pid:-none}; pm2 '$APP_NAME' pid ${pm2_pid:-none}"
-  if [ -n "$port_pid" ] && [ -n "$pm2_pid" ] && [ "$port_pid" != "$pm2_pid" ]; then
-    printf '  \033[1;31m! Another process owns port %s — nginx is talking to it, not to us.\033[0m\n' "$APP_PORT"
-    printf '    Inspect it with:  ps -fp %s\n' "$port_pid"
-  fi
+port_pid="$(port_owner)"
+pm2_pid="$(pm2_pid_of "$APP_NAME")"
+echo "  port $APP_PORT held by pid ${port_pid:-none}; pm2 '$APP_NAME' pid ${pm2_pid:-none}"
+
+if [ -n "$port_pid" ] && [ -n "$pm2_pid" ] && [ "$port_pid" != "$pm2_pid" ]; then
+  printf '  \033[1;31m! Port %s still belongs to pid %s, not to our app.\033[0m\n' \
+    "$APP_PORT" "$port_pid"
+  ps -fp "$port_pid" 2>/dev/null | sed 's/^/    /' || true
+elif [ -z "$port_pid" ]; then
+  printf '  \033[1;31m! Nothing is listening on %s — the app failed to bind.\033[0m\n' "$APP_PORT"
+  pm2 logs "$APP_NAME" --lines 20 --nostream 2>/dev/null | tail -20 | sed 's/^/    /' || true
 fi
 
 # ---------------------------------------------------------------- health check
@@ -178,25 +214,43 @@ public_title="$(page_title "https://$PUBLIC_URL/")"
 public_asset="$(page_asset "https://$PUBLIC_URL/")"
 echo "  public $PUBLIC_URL  HTTP $public_code  ${public_asset:-no-bundle}  ${public_title:-(no title)}"
 
-# Compare bundle fingerprints, not titles. If the public site serves a different
-# hashed bundle than the one just built, visitors are not getting this deploy.
-if [ -n "$local_asset" ] && [ "$local_asset" != "$public_asset" ]; then
-  printf '\n  \033[1;31m! The public site is NOT serving this build.\033[0m\n'
-  printf '    local  %s\n    public %s\n\n' "$local_asset" "$public_asset"
-  printf '    The app on 127.0.0.1:%s is correct, so nginx is sending visitors\n' "$APP_PORT"
-  printf '    somewhere else. Which port does the vhost actually target?\n\n'
-  for conf in /etc/nginx/sites-enabled/"$PUBLIC_URL".conf \
-              /etc/nginx/sites-enabled/"$PUBLIC_URL" \
-              /home/*/conf/nginx/*"$PUBLIC_URL"*; do
-    [ -f "$conf" ] || continue
-    printf '    %s\n' "$conf"
-    grep -nE 'proxy_pass|root ' "$conf" 2>/dev/null | sed 's/^/      /'
-  done
-  printf '\n    Fix the port in CloudPanel > Vhost (or the file above), then:\n'
-  printf '      nginx -t && systemctl reload nginx\n'
-elif [ "$public_code" = "200" ]; then
-  printf '  \033[1;32m  public site is serving this build\033[0m\n'
+# The ONLY comparison that means anything is built-vs-served. Comparing local to
+# public was a mistake: when a stale process held the port, both sides returned the
+# same old bundle, the strings matched, and this printed success in green while
+# visitors saw days-old code. Every check below is anchored to $built_asset.
+served_stale=0
+[ -n "$local_asset" ]  && [ "$local_asset"  != "/assets/$built_asset" ] && served_stale=1
+[ -n "$public_asset" ] && [ "$public_asset" != "/assets/$built_asset" ] && served_stale=1
+
+if [ "$served_stale" = "1" ]; then
+  printf '\n  \033[1;31m! NOT SERVING THIS BUILD\033[0m\n'
+  printf '    built  /assets/%s\n' "$built_asset"
+  printf '    local  %s\n' "${local_asset:-none}"
+  printf '    public %s\n\n' "${public_asset:-none}"
+
+  if [ "$local_asset" != "/assets/$built_asset" ]; then
+    printf '    Port %s is answering with a different build than the one on disk,\n' "$APP_PORT"
+    printf '    so a stale process owns the port. Identify and stop it:\n'
+    printf '      ss -ltnp | grep %s\n' "$APP_PORT"
+  else
+    printf '    Port %s is correct but the public URL is not, so nginx points\n' "$APP_PORT"
+    printf '    elsewhere. Current vhost routing:\n'
+    for conf in /etc/nginx/sites-enabled/"$PUBLIC_URL".conf \
+                /etc/nginx/sites-enabled/"$PUBLIC_URL" \
+                /home/*/conf/nginx/*"$PUBLIC_URL"*; do
+      [ -f "$conf" ] || continue
+      printf '      %s\n' "$conf"
+      grep -nE 'proxy_pass|root ' "$conf" 2>/dev/null | sed 's/^/        /'
+    done
+    printf '    Fix the port, then: nginx -t && systemctl reload nginx\n'
+  fi
+
+  # Exit non-zero. A deploy that did not reach visitors is a failed deploy, and
+  # saying so is the whole point of this script.
+  fail "Deploy did not reach visitors — see above."
 fi
+
+printf '  \033[1;32mpublic site is serving /assets/%s\033[0m\n' "$built_asset"
 
 printf '\n\033[1;32m✓ Deployed %s (%s) → https://%s\033[0m\n' \
   "$(git rev-parse --short HEAD)" "$BRANCH" "$PUBLIC_URL"
