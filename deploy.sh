@@ -20,8 +20,12 @@ APP_HOST="0.0.0.0"
 ENTRY=".output/server/index.mjs"
 PUBLIC_URL="bb.digilatics.co"
 
+# Absolute path to this script, resolved before any cd, so it stays valid for the
+# self-update re-exec below.
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+
 # Always run from the directory this script lives in.
-cd "$(dirname "$0")"
+cd "$(dirname "$SELF")"
 
 BRANCH="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 
@@ -45,6 +49,7 @@ echo "  dir    $(pwd)"
 # truth. Tracked local edits are discarded (npm rewriting package-lock.json, a
 # stray hotfix, a file-mode flip) so a deploy can never wedge on a dirty tree.
 log "Fetching origin/$BRANCH"
+self_before="$(md5sum "$SELF" | cut -d' ' -f1)"
 git fetch origin "$BRANCH"
 
 if ! git diff --quiet HEAD -- || ! git diff --cached --quiet; then
@@ -55,6 +60,15 @@ fi
 git checkout -q "$BRANCH" 2>/dev/null || git checkout -q -B "$BRANCH" "origin/$BRANCH"
 git reset --hard "origin/$BRANCH"
 echo "  now at $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)"
+
+# The reset may have just replaced THIS script. Bash reads a script lazily, so the
+# rest of the run would execute a mix of the old parsed body and new bytes at a
+# stale offset — silently skipping logic that the new version added. Re-exec once
+# so the remainder of the deploy runs entirely from the updated script.
+if [ "$(md5sum "$SELF" | cut -d' ' -f1)" != "$self_before" ] && [ "${DEPLOY_REEXEC:-}" != "1" ]; then
+  echo "  deploy.sh itself was updated — re-executing the new version"
+  DEPLOY_REEXEC=1 exec bash "$SELF" "$BRANCH"
+fi
 
 # --------------------------------------------------------------- dependencies
 log "Installing dependencies"
