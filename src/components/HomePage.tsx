@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { motion, useScroll, useTransform, AnimatePresence } from "motion/react";
+import {
+  motion,
+  useScroll,
+  useTransform,
+  AnimatePresence,
+  useInView,
+  useReducedMotion,
+  animate,
+} from "motion/react";
 import {
   ArrowUpRight,
   Phone,
@@ -71,6 +79,61 @@ const NAV = [
   { label: "Packages", href: "#packages" },
   { label: "Careers", href: "#careers" },
 ];
+
+/* ────────────────────────────────  COUNT UP  ──────────────────────────────── */
+/* Splits a stat like "100K+" / "4.9★" into number + affixes and counts the
+   number up every time the stat scrolls into view. */
+const STAT_PARTS = /^(\D*)([\d.]+)(.*)$/;
+
+function CountUp({
+  value,
+  className,
+  duration = 1.6,
+  delay = 0,
+}: {
+  value: string;
+  className?: string;
+  duration?: number;
+  delay?: number;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { margin: "-10% 0px -10% 0px" });
+  const reduceMotion = useReducedMotion();
+  const parts = value.match(STAT_PARTS);
+  const [display, setDisplay] = useState(value);
+
+  useEffect(() => {
+    if (!parts) return;
+    const [, prefix, num, suffix] = parts;
+    const target = parseFloat(num);
+    const decimals = (num.split(".")[1] ?? "").length;
+    const render = (n: number) => setDisplay(`${prefix}${n.toFixed(decimals)}${suffix}`);
+
+    if (reduceMotion) {
+      render(target);
+      return;
+    }
+    if (!inView) {
+      render(0);
+      return;
+    }
+    const controls = animate(0, target, {
+      duration,
+      delay,
+      ease: [0.22, 1, 0.36, 1],
+      onUpdate: render,
+    });
+    return () => controls.stop();
+  }, [inView, reduceMotion, value, duration, delay]);
+
+  if (!parts) return <span className={className}>{value}</span>;
+
+  return (
+    <span ref={ref} className={className}>
+      {display}
+    </span>
+  );
+}
 
 /* ────────────────────────────────  HEADER  ──────────────────────────────── */
 function Header() {
@@ -433,7 +496,11 @@ function Hero() {
               ].map((s, i, arr) => (
                 <div key={s.k} className="flex items-center gap-5 md:gap-8">
                   <div className="text-center leading-tight">
-                    <div className="font-display font-bold text-lg md:text-xl text-ink">{s.k}</div>
+                    <CountUp
+                      value={s.k}
+                      delay={0.85}
+                      className="block font-display font-bold text-lg md:text-xl text-ink tabular-nums"
+                    />
                     <div className="text-[9px] md:text-[10px] uppercase tracking-[0.18em] text-ink/60 mt-0.5">
                       {s.v}
                     </div>
@@ -491,9 +558,10 @@ function TrustBar() {
                 transition={{ duration: 0.6, delay: 0.1 + i * 0.1 }}
                 className="group px-6 py-10 md:px-10 md:py-14 text-center md:text-left"
               >
-                <div className="font-display font-bold text-4xl md:text-6xl leading-none text-foreground transition-colors group-hover:text-primary">
-                  {s.k}
-                </div>
+                <CountUp
+                  value={s.k}
+                  className="block font-display font-bold text-4xl md:text-6xl leading-none text-foreground transition-colors group-hover:text-primary tabular-nums"
+                />
                 <div className="mt-3 text-[11px] md:text-xs uppercase tracking-[0.2em] text-muted-foreground">
                   {s.v}
                 </div>
@@ -1303,9 +1371,10 @@ function ScheduleCTA() {
                   transition={{ duration: 0.5, delay: 0.1 + i * 0.08 }}
                   className="group rounded-2xl bg-white/10 border border-white/20 p-5 md:p-6 text-center backdrop-blur-sm hover:bg-white/15 transition-all"
                 >
-                  <div className="font-display text-2xl md:text-3xl text-white group-hover:scale-110 transition-transform">
-                    {s.k}
-                  </div>
+                  <CountUp
+                    value={s.k}
+                    className="block font-display text-2xl md:text-3xl text-white group-hover:scale-110 transition-transform tabular-nums"
+                  />
                   <div className="mt-1.5 text-[10px] uppercase tracking-[0.18em] text-white/70">{s.v}</div>
                 </motion.div>
               ))}
